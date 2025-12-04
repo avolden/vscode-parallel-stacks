@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { createThreadTree } from './node_tree';
 
 class Thread {
 	id: number = 0;
@@ -97,6 +98,8 @@ export async function show(html: vscode.Uri, extUri: vscode.Uri) {
 				case 'update':
 					let debugSession = vscode.debug.activeDebugSession;
 					if (debugSession) {
+						console.log(await createThreadTree(debugSession));
+
 						if (debugSession.type == 'cppvsdbg' || debugSession.type == 'cppdbg') {
 							console.log('MS Debugger')
 						}
@@ -122,6 +125,7 @@ export async function show(html: vscode.Uri, extUri: vscode.Uri) {
 
 							threads.push(th);
 						}
+
 						let msg = {
 							command: 'threads',
 							threads: threads

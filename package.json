@@ -19,7 +19,11 @@
       {
         "command": "thread-graph.helloWorld",
         "title": "Hello World",
-		"icon": "$(symbol-class)"
+		    "icon": "$(symbol-class)"
+      },
+      {
+        "command": "thread-graph.show",
+        "title": "Show thread graph"
       }
     ],
 	"menus": {

@@ -13,10 +13,13 @@
 	<link href="${styleResetUri}" type="text/css" rel="stylesheet">
 	<link href="${styleUri}" rel="stylesheet">
 
-	<title>Cat Coding</title>
+	<title>Thread Graph</title>
 </head>
 <body>
 	<button id="update-button" class="update-button">Update</button>
+	<div id="canvas-container" role="presentation">
+		<canvas id="thread-canvas"></canvas>
+	</div>
 
 	<script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
