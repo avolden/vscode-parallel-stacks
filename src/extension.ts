@@ -1,30 +1,28 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import * as web_view from './web_view'
 import { vibe_activate } from './vibe';
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "thread-graph" is now active!');
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('thread-graph.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from Thread Graph!');
-		web_view.show(vscode.Uri.file(context.asAbsolutePath('res/main.html')), context.extensionUri);
+	const callstackDisposable = vscode.commands.registerCommand('thread-graph.callstack-show', () => {
+		web_view.show(vscode.Uri.file(context.asAbsolutePath('res/main.html')), context);
 	});
+	context.subscriptions.push(callstackDisposable);
+	const cmdDisposable = vscode.commands.registerCommand('thread-graph.show', () => {
+		web_view.show(vscode.Uri.file(context.asAbsolutePath('res/main.html')), context);
+	});
+	context.subscriptions.push(cmdDisposable);
 
-	context.subscriptions.push(disposable);
+	vscode.window.registerWebviewPanelSerializer('thread-graph', new web_view.Deserializer(
+		vscode.Uri.file(context.asAbsolutePath('res/main.html')),
+		context
+	));
 
-	vibe_activate(context);
+	let webviewState: web_view.WebViewState | undefined = context.globalState.get('webviewState');
+	if (!webviewState) {
+		webviewState = new web_view.WebViewState();
+		context.globalState.update('webviewState', webviewState);
+	}
 }
 
-// This method is called when your extension is deactivated
 export function deactivate() {}

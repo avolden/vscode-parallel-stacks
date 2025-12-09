@@ -34,6 +34,11 @@ a {
 	color: var(--vscode-textLink-foreground);
 }
 
+body,html {
+    margin: 0;
+    padding: 0;
+}
+
 .ababa {
 	color: white;
 	font-weight: normal;
@@ -49,19 +54,22 @@ a {
 
 #canvas-container {
 	position: relative;
-	max-width: 100%;
-	max-height: 90vh;
+	width: 100%;
+	height: calc(100vh - 5em);
 	cursor: grab;
 	overflow: scroll;
+	margin: 0%;
+	padding: 0px !important;
 }
 
 #thread-canvas {
+	margin: 0%;
+	padding: 0px !important;
 	/* position: absolute;
 	top: 0px;
 	left: 0px;
-	background-color: var(--vscode-editor-background); */
 	width: 2000px;
-	height: 2000px;
+	height: 2000px; */
 }
 
 a:hover,

@@ -10,14 +10,15 @@
 	"Other"
   ],
   "activationEvents": [
-	"*",
-	"onStartupFinished"
+	"onCommand:callstack-show",
+	"onCommand:show",
+	"onWebviewPanel:thread-graph"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "thread-graph.helloWorld",
+        "command": "thread-graph.callstack-show",
         "title": "Hello World",
 		    "icon": "$(symbol-class)"
       },
@@ -29,7 +30,7 @@
 	"menus": {
 		"view/title":[
 			{
-				"command": "thread-graph.helloWorld",
+				"command": "thread-graph.callstack-show",
 				"when": "view == workbench.debug.callStackView",
 				"group": "navigation"
 			}

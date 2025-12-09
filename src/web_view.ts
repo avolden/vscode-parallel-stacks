@@ -1,16 +1,35 @@
 import * as vscode from 'vscode';
-import { createThreadTree } from './node_tree';
-
-class Thread {
-	id: number = 0;
-	frames: {
-		fn: string;
-		// file: string;
-		// line: number;
-	}[] = [];
-}
+import { createThreadTree, Node } from './node_tree'; 
 
 let currentPanel: vscode.WebviewPanel | undefined = undefined;
+
+export class WebViewState {
+	external: boolean = true;
+}
+
+export class Deserializer implements vscode.WebviewPanelSerializer {
+	html: vscode.Uri;
+	context: vscode.ExtensionContext;
+	constructor(html: vscode.Uri, context: vscode.ExtensionContext) {
+		this.html = html;
+		this.context = context;
+	}
+	async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, state: unknown): Promise<void> {console.log(state);
+		const data = (await vscode.workspace.fs.readFile(this.html)).toString();
+
+		let webview: vscode.Webview = webviewPanel.webview;
+		const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'res', 'main.js'));
+		const styleResetUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'res', 'reset.css'));
+		const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'res', 'main.css'));
+		const nonce = getNonce();
+
+		let webviewState: WebViewState | undefined = this.context.globalState.get('webviewState');
+		const externalCode = webviewState?.external || '';
+
+		let formattedData = eval('`'+data+'`');
+		webviewPanel.webview.html = formattedData;
+	}
+}
 
 function getNonce() {
 	let text = '';
@@ -21,72 +40,31 @@ function getNonce() {
 	return text;
 }
 
-function _getHtmlForWebview(webview: vscode.Webview, extUri: vscode.Uri, catGifPath: string) {
-		// And the uri we use to load this script in the webview
-		const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(extUri, 'res', 'main.js'));
-		const styleResetUri = webview.asWebviewUri(vscode.Uri.joinPath(extUri, 'res', 'reset.css'));
-		const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(extUri, 'res', 'main.css'));
-
-		// Use a nonce to only allow specific scripts to be run
-		const nonce = getNonce();
-
-		return `<!DOCTYPE html>
-			<html lang="en">
-			<head>
-				<meta charset="UTF-8">
-
-				<!--
-					Use a content security policy to only allow loading images from https or from our extension directory,
-					and only allow scripts that have a specific nonce.
-				-->
-				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; img-src ${webview.cspSource} https:; script-src 'nonce-${nonce}';">
-
-				<meta name="viewport" content="width=device-width, initial-scale=1.0">
-				<link href="${styleResetUri}" type="text/css" rel="stylesheet">
-				<link href="${styleUri}" type="text/css" rel="stylesheet">
-
-				<title>Thread Graph</title>
-			</head>
-			<body>
-				<img src="${catGifPath}" width="300" />
-				<div id="lines-of-code-counter" class="ababa">0</h1>
-
-				<script nonce="${nonce}" src="${scriptUri}"></script>
-			</body>
-			</html>`;
-	}
-
-export async function show(html: vscode.Uri, extUri: vscode.Uri) {
+export async function show(html: vscode.Uri, context: vscode.ExtensionContext) {
 	if (currentPanel) {
 		currentPanel.reveal(vscode.ViewColumn.Active);
-		let msg = {
-			command: 'threads',
-			threads: [
-				'ababa',
-				'Hello',
-				'World'
-			]
-		};
-		currentPanel.webview.postMessage(msg);
 	}
 	else {
 		currentPanel = vscode.window.createWebviewPanel('thread-graph', 'Thread Graph', vscode.ViewColumn.Active, {
 			enableScripts: true,
-			localResourceRoots: [vscode.Uri.joinPath(extUri, 'res')]
+			localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'res')]
 		});
 
 		const data = (await vscode.workspace.fs.readFile(html)).toString();
 
 		let webview: vscode.Webview = currentPanel.webview;
-		const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(extUri, 'res', 'main.js'));
-		const styleResetUri = webview.asWebviewUri(vscode.Uri.joinPath(extUri, 'res', 'reset.css'));
-		const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(extUri, 'res', 'main.css'));
+		const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'res', 'main.js'));
+		const styleResetUri = webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'res', 'reset.css'));
+		const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'res', 'main.css'));
 		const nonce = getNonce();
 
-		// let formattedData = _getHtmlForWebview(webview, extUri, 'https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif');
-		let formattedData = eval('`'+data+'`');
+		let webviewState: WebViewState | undefined = context.globalState.get('webviewState');
+		let externalCode = '';
+		if (webviewState?.external) {
+			externalCode = 'checked';
+		}
 
-		// console.log(formattedData);
+		let formattedData = eval('`'+data+'`');
 		currentPanel.webview.html = formattedData;
 
 		currentPanel.onDidDispose(() => {
@@ -98,41 +76,23 @@ export async function show(html: vscode.Uri, extUri: vscode.Uri) {
 				case 'update':
 					let debugSession = vscode.debug.activeDebugSession;
 					if (debugSession) {
-						console.log(await createThreadTree(debugSession));
+						let root: Node = await createThreadTree(debugSession);
+						console.log(root);
 
 						if (debugSession.type == 'cppvsdbg' || debugSession.type == 'cppdbg') {
 							console.log('MS Debugger')
 						}
-						let threads : Thread[] = [];
-						for (const thread of (await debugSession.customRequest('threads')).threads || [])
-						{
-							let th = new Thread();
-							th.id = thread.id;
-
-							const framesResponse = await debugSession.customRequest('stackTrace', {
-								threadId: th.id,
-								startFrame: 0,
-								levels: 200
-							});
-
-							for (const frame of framesResponse.stackFrames || []) {
-								th.frames.push({
-									fn: frame.name || ''
-									// file: '',
-									// line: 0
-								});
-							}
-
-							threads.push(th);
-						}
 
 						let msg = {
 							command: 'threads',
-							threads: threads
+							threads: root
 						};
 						if (currentPanel)
 							currentPanel.webview.postMessage(msg);
 					}
+					break;
+				case 'updateState':
+					context.globalState.update('webviewState', msg.data);
 					break;
 			}
 		});

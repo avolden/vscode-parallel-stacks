@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 
 export class Frame {
 	name: string = '';
+	type: string = '';
 }
 
 export class Node {
@@ -18,15 +19,13 @@ function parseNodes(parent: Node, children: Node[]) {
 			break;
 
 		let relatives: Node[][] = [];
-		relatives.push(new Array(children[0]));
-		for (var i = 1; i < children.length; ++i) {
+		for (var i = 0; i < children.length; ++i) {
 			let found: boolean = false;
 			for (var j = 0; j < relatives.length; ++j) {
-				if (children[i] == relatives[j][0])
-					continue;
 				if (children[i].frames[stackLevel].name == relatives[j][0].frames[stackLevel].name) {
 					relatives[j].push(children[i]);
 					found = true;
+					break;
 				}
 			}
 
@@ -34,20 +33,6 @@ function parseNodes(parent: Node, children: Node[]) {
 				relatives.push(new Array(children[i]));
 			}
 		}
-
-		// if (siblings.length > 0) {
-		// 	let newNode: Node = new Node();
-		// 	for (var i = 0; i < stackLevel; ++i) {
-		// 		parent.frames.push(siblings[0].frames[i]);
-		// 	}
-		// 	for (const child of siblings) {
-		// 		child.frames.splice(0, stackLevel + 1);
-		// 	}
-
-		// 	parent.children.push(newNode);
-
-		// 	parseNodes(newNode, siblings);
-		// }
 
 		if (relatives.length > 1) {
 			for (var i = 0; i < stackLevel; ++i) {
@@ -60,27 +45,36 @@ function parseNodes(parent: Node, children: Node[]) {
 
 			for (const siblings of relatives) {
 				if (siblings.length > 1) {
-					let newNode: Node = new Node();					
-					parseNodes(newNode, siblings);
+					let newNode: Node = new Node();
+					parent.children.push(newNode);
 
 					for (const sibling of siblings) {
+						for (var i = 0; i < sibling.ids.length; ++i) {
+							newNode.ids.push(sibling.ids[i]);
+						}
 						const idx = children.indexOf(sibling)
+						console.assert(idx != -1);
 						children.splice(idx, 1);
 					}
-						
+
+					parseNodes(newNode, siblings);
+
 				} else {
 					parent.children.push(siblings[0]);
 					const idx = children.indexOf(siblings[0])
+					console.assert(idx != -1);
 					children.splice(idx, 1);
 				}
 			}
+			console.assert(children.length == 0);
+			break;
 		}
 		stackLevel++;
 	}
 
 	if (children.length > 0) {
-		for (var i = 0; i < children.length; ++i) {
-			parent.children.push(children[i]);
+		for (var i = 0; i < stackLevel; ++i) {
+			parent.frames.push(children[0].frames[i]);
 		}
 	}
 }
@@ -101,10 +95,11 @@ export async function createThreadTree(debugSession: vscode.DebugSession) {
 			startFrame: 0,
 			levels: 200
 		});
-		
+
 		for (const frame of framesResponse.stackFrames || []) {
 			child.frames.push({
-				name: frame.name || ''
+				name: frame.name || '',
+				type: frame.source == undefined ? 'external' : 'normal'
 			});
 		}
 		child.frames.reverse();

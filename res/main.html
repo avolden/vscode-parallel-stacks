@@ -16,8 +16,12 @@
 	<title>Thread Graph</title>
 </head>
 <body>
-	<button id="update-button" class="update-button">Update</button>
-	<div id="canvas-container" role="presentation">
+	<span id="main-bar">
+		<button id="update-button" class="update-button">Update</button>
+		<input type="checkbox" id="external-code" name="Show external code" ${externalCode}/>
+		<label for="external-code">Show external code</label>
+	</span>
+	<div id="canvas-container">
 		<canvas id="thread-canvas"></canvas>
 	</div>
 
