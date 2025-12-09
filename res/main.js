@@ -2,6 +2,13 @@
 // It cannot access the main VS Code APIs directly.
 
 /**
+ * @typedef Thread
+ * @type {object}
+ * @property {number} id - thread ID
+ * @property {string} name - thread name
+ */
+
+/**
  * @typedef ThreadFrame
  * @type {object}
  * @property {string} name - Frame name
@@ -11,7 +18,7 @@
 /**
  * @typedef ThreadNode
  * @type {object}
- * @property {number[]} ids - Thread ids contained in this node
+ * @property {Thread[]} threads - Thread ids contained in this node
  * @property {ThreadFrame[]} frames
  * @property {ThreadNode[]} children
  *
@@ -59,6 +66,38 @@
 		return;
 	}
 
+	// const menuNode = document.createElement('div');
+	// menuNode.id = 'menu';
+	// menuNode.style.display = 'none';
+	// menuNode.style.position = 'fixed';
+	// menuNode.style.width = '60px';
+	// menuNode.style.backgroundColor = 'white';
+	// menuNode.style.boxShadow = '0 0 5px grey';
+	// menuNode.style.borderRadius = '3px';
+
+	// // Create buttons for the menu
+	// const pulseButton = document.createElement('button');
+	// pulseButton.textContent = 'Pulse';
+	// pulseButton.style.width = '100%';
+	// pulseButton.style.backgroundColor = 'white';
+	// pulseButton.style.color = 'black';
+	// pulseButton.style.border = 'none';
+	// pulseButton.style.margin = '0';
+	// pulseButton.style.padding = '10px';
+
+	// const deleteButton = document.createElement('button');
+	// deleteButton.textContent = 'Delete';
+	// deleteButton.style.width = '100%';
+	// deleteButton.style.backgroundColor = 'white';
+	// deleteButton.style.color = 'black';
+	// deleteButton.style.border = 'none';
+	// deleteButton.style.margin = '0';
+	// deleteButton.style.padding = '10px';
+
+	// menuNode.appendChild(pulseButton);
+	// menuNode.appendChild(deleteButton);
+	// document.body.appendChild(menuNode);
+
 	/**
 	 * @param {ThreadNode} node
 	 * @returns {number} children
@@ -85,6 +124,7 @@
 
 		const externalText = '[External Code]';
 		let externalNode = true;
+		let externalBlockStart = -1;
 		// TODO move hardcode values to css
 		let size = {x: 0, y: 0};
 		for (var i = 0; i < node.frames.length; ++i) {
@@ -95,18 +135,36 @@
 				}
 				size.y += frameSize.fontBoundingBoxAscent + frameSize.fontBoundingBoxDescent + 10;
 				externalNode = false;
+				externalBlockStart = -1;
 			}
 			else if (!state.external && node.frames[i].type == 'external') {
-				let frameSize = ctx.measureText(externalText);
-				if (size.x < frameSize.width + 10) {
-					size.x = frameSize.width + 10;
+				if (externalBlockStart == -1) {
+					externalBlockStart = i;
+					let frameSize = ctx.measureText(externalText);
+					if (size.x < frameSize.width + 10) {
+						size.x = frameSize.width + 10;
+					}
+					size.y += frameSize.fontBoundingBoxAscent + frameSize.fontBoundingBoxDescent + 10;
 				}
-				size.y += frameSize.fontBoundingBoxAscent + frameSize.fontBoundingBoxDescent + 10;
 			}
 		}
 
 		if (externalNode && !state.external) {
 			return {x: 0, y: 0};
+		}
+
+		// Node header
+		let headerText = ''
+		if (node.threads.length > 1) {
+			headerText = node.threads.length + ' Threads';
+		}
+		else {
+			headerText = node.threads[0].name + ' (' + node.threads[0].id + ')';
+		}
+		let headerSize = ctx.measureText(headerText);
+		size.y += headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + 10;
+		if (size.x < headerSize.width + 10) {
+			size.x = headerSize.width + 10;
 		}
 		return size;
 	}
@@ -239,27 +297,52 @@
 			ctx.font = getComputedStyle(canvas).getPropertyValue('--vscode-editor-font-size') + ' ' + getComputedStyle(canvas).getPropertyValue('--vscode-editor-font-family');
 			ctx.textBaseline = 'middle';
 
+			let externalBlockStart = -1;
+			let line = 0;
+
 			// TODO move hardcode values to css
+			let headerText = ''
+			if (node.threads.length > 1) {
+				headerText = node.threads.length + ' Threads';
+			}
+			else {
+				headerText = node.threads[0].name + ' (' + node.threads[0].id + ')';
+			}
+			let headerSize = ctx.measureText(headerText);
+
+			ctx.fillText(headerText, posX + (size.x - headerSize.width) / 2, posY + 15 + (headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + 10)*line);
+			ctx.strokeStyle = 'white'
+			ctx.strokeRect(posX, posY, size.x, (headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + 10) * (line+1));
+			++line;
+
 			for (var i = 0; i < node.frames.length; ++i) {
 				let name = node.frames[node.frames.length - 1 - i].name;
-				if (!state.external && node.frames[i].type == 'external') {
-					name = externalText;
-				}
-				let textSize = ctx.measureText(name);
 				if (node.frames[node.frames.length - 1 - i].type == 'external') {
-					ctx.fillStyle = 'darkgrey'
+					if (state.external || externalBlockStart == -1) {
+						externalBlockStart = node.frames.length - 1 - i;
+						ctx.fillStyle = 'darkgrey'
+						if (!state.external)
+							name = externalText;
+					} else {
+						continue;
+					}
 				}
 				else {
+					externalBlockStart = -1;
 					ctx.fillStyle = 'white';
 				}
-				ctx.fillText(name, posX + 5, posY + 15 + (textSize.fontBoundingBoxAscent + textSize.fontBoundingBoxDescent + 10)*i);
+
+				let textSize = ctx.measureText(name);
+				ctx.fillText(name, posX + 5, posY + 15 + (textSize.fontBoundingBoxAscent + textSize.fontBoundingBoxDescent + 10)*line);
 
 				if (i < node.frames.length - 1) {
+					ctx.strokeStyle = 'grey'
 					ctx.beginPath();
-					ctx.moveTo(posX, posY + (textSize.fontBoundingBoxAscent + textSize.fontBoundingBoxDescent + 10) * (i+1));
-					ctx.lineTo(posX + size.x, posY + (textSize.fontBoundingBoxAscent + textSize.fontBoundingBoxDescent + 10) * (i+1))
+					ctx.moveTo(posX, posY + (textSize.fontBoundingBoxAscent + textSize.fontBoundingBoxDescent + 10) * (line+1));
+					ctx.lineTo(posX + size.x, posY + (textSize.fontBoundingBoxAscent + textSize.fontBoundingBoxDescent + 10) * (line+1))
 					ctx.stroke();
 				}
+				++line;
 			}
 		}
 
@@ -321,8 +404,21 @@
 		canvas.addEventListener('mousedown', startMove);
 		canvas.addEventListener('mousemove', move);
 		canvas.addEventListener('mouseup', stopMove);
-		canvas.addEventListener('mouseout', stopMove); // End drag if mouse leaves canvas
-		// canvas.addEventListener('click', onClick);
+		canvas.addEventListener('mouseout', stopMove);
+
+		// canvas.addEventListener('contextmenu', (e) => {
+  		// 	// prevent default behavior
+		// 	e.preventDefault();
+		// 	menuNode.style.display = 'initial';
+		// 	menuNode.style.top = e.clientY + 'px';
+		// 	menuNode.style.left = e.clientX + 'px';
+		// });
+
+		// canvas.addEventListener('click', (e) => {
+		// 	if (menuNode.style.display == 'initial') {
+		// 		menuNode.style.display = 'none';
+		// 	}
+		// })
 
 		drawGraph();
 	});

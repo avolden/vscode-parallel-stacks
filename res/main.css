@@ -72,6 +72,15 @@ body,html {
 	height: 2000px; */
 }
 
+#popup {
+	position: fixed;
+	x: 200px;
+	y: 200px;
+	background-color: white;
+	z-index: 1;
+	color: black;
+}
+
 a:hover,
 a:active {
 	color: white;

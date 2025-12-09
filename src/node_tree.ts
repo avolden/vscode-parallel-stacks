@@ -1,12 +1,17 @@
 import * as vscode from 'vscode';
 
+export class Thread {
+	id: number = 0;
+	name: string = '';
+}
+
 export class Frame {
 	name: string = '';
 	type: string = '';
 }
 
 export class Node {
-	ids: number[] = [];
+	threads: Thread[] = [];
 	frames: Frame[] = [];
 
 	children: Node[] = [];
@@ -49,8 +54,8 @@ function parseNodes(parent: Node, children: Node[]) {
 					parent.children.push(newNode);
 
 					for (const sibling of siblings) {
-						for (var i = 0; i < sibling.ids.length; ++i) {
-							newNode.ids.push(sibling.ids[i]);
+						for (var i = 0; i < sibling.threads.length; ++i) {
+							newNode.threads.push(sibling.threads[i]);
 						}
 						const idx = children.indexOf(sibling)
 						console.assert(idx != -1);
@@ -85,10 +90,14 @@ export async function createThreadTree(debugSession: vscode.DebugSession) {
 	let children: Node[] = [];
 
 	for (const th of (await debugSession.customRequest('threads')).threads) {
-		root.ids.push(th.id);
+		let thread = new Thread();
+		thread.id = th.id;
+		thread.name = th.name;
+
+		root.threads.push(thread);
 
 		let child: Node = new Node();
-		child.ids.push(th.id);
+		child.threads.push(thread);
 
 		const framesResponse = await debugSession.customRequest('stackTrace', {
 			threadId: th.id,
