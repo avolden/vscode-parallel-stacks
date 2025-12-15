@@ -20,14 +20,13 @@ export class Node {
 function parseNodes(parent: Node, children: Node[]) {
 	let stackLevel = 0;
 	while (children.length > 0) {
-		if (stackLevel >= children[0].frames.length)
-			break;
+		if (stackLevel >= children[0].frames.length) { break; }
 
 		let relatives: Node[][] = [];
 		for (var i = 0; i < children.length; ++i) {
 			let found: boolean = false;
 			for (var j = 0; j < relatives.length; ++j) {
-				if (children[i].frames[stackLevel].name == relatives[j][0].frames[stackLevel].name) {
+				if (children[i].frames[stackLevel].name === relatives[j][0].frames[stackLevel].name) {
 					relatives[j].push(children[i]);
 					found = true;
 					break;
@@ -57,8 +56,8 @@ function parseNodes(parent: Node, children: Node[]) {
 						for (var i = 0; i < sibling.threads.length; ++i) {
 							newNode.threads.push(sibling.threads[i]);
 						}
-						const idx = children.indexOf(sibling)
-						console.assert(idx != -1);
+						const idx = children.indexOf(sibling);
+						console.assert(idx !== -1);
 						children.splice(idx, 1);
 					}
 
@@ -66,12 +65,12 @@ function parseNodes(parent: Node, children: Node[]) {
 
 				} else {
 					parent.children.push(siblings[0]);
-					const idx = children.indexOf(siblings[0])
-					console.assert(idx != -1);
+					const idx = children.indexOf(siblings[0]);
+					console.assert(idx !== -1);
 					children.splice(idx, 1);
 				}
 			}
-			console.assert(children.length == 0);
+			console.assert(children.length === 0);
 			break;
 		}
 		stackLevel++;
@@ -110,7 +109,7 @@ export async function createThreadTree(debugSession: vscode.DebugSession) {
 		for (const frame of framesResponse.stackFrames || []) {
 			child.frames.push({
 				name: frame.name || '',
-				type: frame.source == undefined ? 'external' : 'normal'
+				type: frame.source === undefined ? 'external' : 'normal'
 			});
 		}
 		child.frames.reverse();

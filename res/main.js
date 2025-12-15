@@ -65,21 +65,21 @@
 
 	function selectStyle() {
 		if (document.body.className === 'vscode-dark') {
-		const styleDark = {
-			codeFont: Number(getComputedStyle(canvas).getPropertyValue('--vscode-editor-font-size').slice(0, -2)) - 2 + 'px ' + getComputedStyle(canvas).getPropertyValue('--vscode-editor-font-family'),
-			font: getComputedStyle(canvas).getPropertyValue('--vscode-font-size') + ' ' + getComputedStyle(canvas).getPropertyValue('--vscode-font-family'),
-			canvasMargin: 15,
-			textMargin: 10,
-			nodeSpacing: 50,
+			const styleDark = {
+				codeFont: Number(getComputedStyle(canvas).getPropertyValue('--vscode-editor-font-size').slice(0, -2)) - 2 + 'px ' + getComputedStyle(canvas).getPropertyValue('--vscode-editor-font-family'),
+				font: getComputedStyle(canvas).getPropertyValue('--vscode-font-size') + ' ' + getComputedStyle(canvas).getPropertyValue('--vscode-font-family'),
+				canvasMargin: 15,
+				textMargin: 10,
+				nodeSpacing: 50,
 
-			textColor: 'white',
-			externalColor: 'darkgrey',
+				textColor: 'white',
+				externalColor: 'darkgrey',
 
-			nodeColor: 'grey',
-			headerColor: 'white',
-			nodeLinkColor: 'lightgrey'
-		};
-		return styleDark;
+				nodeColor: 'grey',
+				headerColor: 'white',
+				nodeLinkColor: 'lightgrey'
+			};
+			return styleDark;
 		}
 		else if (document.body.className === 'vscode-light') {
 			const styleLight = {
@@ -157,7 +157,7 @@
 	 */
 	function calcNodeSize(node) {
 		if (!ctx) {
-			return {x: 0, y: 0};
+			return { x: 0, y: 0 };
 		}
 
 		ctx.font = style.codeFont;
@@ -166,10 +166,10 @@
 		const externalText = '[External Code]';
 		let externalNode = true;
 		let externalBlockStart = -1;
-		let size = {x: 0, y: 0};
+		let size = { x: 0, y: 0 };
 		for (var i = 0; i < node.frames.length; ++i) {
 			if (state.external || (!state.external && node.frames[i].type === 'normal')) {
-			let frameSize = ctx.measureText(node.frames[i].name);
+				let frameSize = ctx.measureText(node.frames[i].name);
 				if (size.x < frameSize.width + style.textMargin) {
 					size.x = frameSize.width + style.textMargin;
 				}
@@ -190,7 +190,7 @@
 		}
 
 		if (externalNode && !state.external) {
-			return {x: 0, y: 0};
+			return { x: 0, y: 0 };
 		}
 
 		// Node header
@@ -216,12 +216,12 @@
 	 * @param {ThreadNode} node
 	 */
 	function calcNodeBB(node) {
-		node.bb = {x: 0, y: 0};
+		node.bb = { x: 0, y: 0 };
 		if (!ctx) {
 			return;
 		}
 
-		let childrenBB = {x: 0, y: 0};
+		let childrenBB = { x: 0, y: 0 };
 		for (var i = 0; i < node.children.length; ++i) {
 			calcNodeBB(node.children[i]);
 			if (childrenBB.x !== 0) {
@@ -247,8 +247,8 @@
 	}
 
 	let moving = false;
-	let start = {x: 0, y: 0};
-	let scroll = {x: 0, y: 0};
+	let start = { x: 0, y: 0 };
+	let scroll = { x: 0, y: 0 };
 	const slider = document.getElementById('canvas-container');
 
 	/**
@@ -290,7 +290,7 @@
 		const x = e.pageX;
 		const y = e.pageY;
 
-		const newScroll = {x: start.x - x + scroll.x, y: start.y - y + scroll.y};
+		const newScroll = { x: start.x - x + scroll.x, y: start.y - y + scroll.y };
 
 		if (newScroll.x <= 0) {
 			start.x = x;
@@ -310,10 +310,10 @@
 	function resizeCanvas() {
 		// TODO Remove Y scrollbar if not needed
 		if (threadsData !== undefined && container !== null) {
-			canvas.width = (threadsData.bb.x + 50 > container.clientWidth ? threadsData.bb.x + 50: container.clientWidth) * window.devicePixelRatio;
+			canvas.width = (threadsData.bb.x + 50 > container.clientWidth ? threadsData.bb.x + 50 : container.clientWidth) * window.devicePixelRatio;
 			canvas.height = (threadsData.bb.y > container.clientHeight - 10 ? threadsData.bb.y : container.clientHeight - 10) * window.devicePixelRatio;
 		}
-		ctx?.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0 ,0);
+		ctx?.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
 
 		drawGraph();
 	}
@@ -353,9 +353,9 @@
 			let headerSize = ctx.measureText(headerText);
 
 			ctx.font = style.font;
-			ctx.fillText(headerText, posX + (size.x - headerSize.width) / 2, posY + (headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + style.textMargin)/2);
+			ctx.fillText(headerText, posX + (size.x - headerSize.width) / 2, posY + (headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + style.textMargin) / 2);
 			ctx.strokeStyle = style.headerColor;
-			ctx.strokeRect(posX + 0.5, posY + 0.5, size.x, (headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + style.textMargin) * (line+1));
+			ctx.strokeRect(posX + 0.5, posY + 0.5, size.x, (headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + style.textMargin) * (line + 1));
 			let headerLine = (headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + style.textMargin);
 
 			ctx.font = style.codeFont;
@@ -365,8 +365,7 @@
 					if (state.external || externalBlockStart === -1) {
 						externalBlockStart = node.frames.length - 1 - i;
 						ctx.fillStyle = style.externalColor;
-						if (!state.external)
-							{name = externalText;}
+						if (!state.external) { name = externalText; }
 					} else {
 						continue;
 					}
@@ -379,20 +378,20 @@
 				let textSize = ctx.measureText(name);
 				const lineY = (textSize.fontBoundingBoxAscent + textSize.fontBoundingBoxDescent + style.textMargin);
 
-				ctx.fillText(name, posX + style.textMargin/2, posY + headerLine + lineY/2 + lineY*line);
+				ctx.fillText(name, posX + style.textMargin / 2, posY + headerLine + lineY / 2 + lineY * line);
 
 				if (i < node.frames.length - 1) {
 					ctx.strokeStyle = style.nodeColor;
 					ctx.beginPath();
-					ctx.moveTo(posX + 0.5, posY + 0.5 + headerLine + lineY * (line+1) + 0.5);
-					ctx.lineTo(posX + 0.5 + size.x, posY + 0.5 + headerLine + lineY * (line+1) + 0.5);
+					ctx.moveTo(posX + 0.5, posY + 0.5 + headerLine + lineY * (line + 1) + 0.5);
+					ctx.lineTo(posX + 0.5 + size.x, posY + 0.5 + headerLine + lineY * (line + 1) + 0.5);
 					ctx.stroke();
 				}
 				++line;
 			}
 		}
 
-		let pos = {x: posX - node.bb.x / 2 + size.x / 2, y: posY - style.nodeSpacing};
+		let pos = { x: posX - node.bb.x / 2 + size.x / 2, y: posY - style.nodeSpacing };
 		for (var i = 0; i < node.children.length; ++i) {
 			const childSize = calcNodeSize(node.children[i]);
 			if (childSize.x !== 0 && childSize.y !== 0) {
@@ -433,7 +432,7 @@
 		canvas.addEventListener('mouseout', stopMove);
 
 		// canvas.addEventListener('contextmenu', (e) => {
-  		// 	// prevent default behavior
+		// 	// prevent default behavior
 		// 	e.preventDefault();
 		// 	menuNode.style.display = 'initial';
 		// 	menuNode.style.top = e.clientY + 'px';
@@ -449,11 +448,11 @@
 		drawGraph();
 	});
 
-    // Handle messages sent from the extension to the webview
-    window.addEventListener('message', event => {
-        const message = event.data; // The json data that the extension sent
-        switch (message.command) {
-            case 'threads':
+	// Handle messages sent from the extension to the webview
+	window.addEventListener('message', event => {
+		const message = event.data; // The json data that the extension sent
+		switch (message.command) {
+			case 'threads':
 				threadsData = message.threads;
 				if (threadsData !== undefined) {
 					calcNodeBB(threadsData);
@@ -463,7 +462,7 @@
 					ctx.clearRect(0, 0, canvas.width, canvas.height);
 					// TODO msg to tell no debug session is started
 				}
-                break;
+				break;
 			case 'continue':
 				ctx.fillStyle = '#00000063';
 				ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -472,8 +471,8 @@
 				style = selectStyle();
 				drawGraph();
 				break;
-        }
-    });
+		}
+	});
 
 	const button = document.getElementById('external-button');
 	button?.addEventListener('click', (e) => {
@@ -497,8 +496,7 @@
 		state.external = button?.className === 'toggle';
 	}
 	else {
-		if (state.external)
-			{button?.classList.toggle('toggle');}
+		if (state.external) { button?.classList.toggle('toggle'); }
 	}
 
 	needStateUpdate = false;

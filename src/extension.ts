@@ -1,31 +1,30 @@
 import * as vscode from 'vscode';
-import * as web_view from './web_view'
-import { vibe_activate } from './vibe';
+import * as webView from './webView';
 
 export function activate(context: vscode.ExtensionContext) {
 
 	const callstackDisposable = vscode.commands.registerCommand('thread-graph.callstack-show', () => {
-		web_view.show(vscode.Uri.file(context.asAbsolutePath('res/main.html')), context);
+		webView.show(vscode.Uri.file(context.asAbsolutePath('res/main.html')), context);
 	});
 	context.subscriptions.push(callstackDisposable);
 	const cmdDisposable = vscode.commands.registerCommand('thread-graph.show', () => {
-		web_view.show(vscode.Uri.file(context.asAbsolutePath('res/main.html')), context);
+		webView.show(vscode.Uri.file(context.asAbsolutePath('res/main.html')), context);
 	});
 	context.subscriptions.push(cmdDisposable);
 
-	vscode.window.registerWebviewPanelSerializer('thread-graph', new web_view.Deserializer(
+	vscode.window.registerWebviewPanelSerializer('thread-graph', new webView.Deserializer(
 		vscode.Uri.file(context.asAbsolutePath('res/main.html')),
 		context
 	));
 
-	let webviewState: web_view.WebViewState | undefined = context.globalState.get('webviewState');
+	let webviewState: webView.WebViewState | undefined = context.globalState.get('webviewState');
 	if (!webviewState) {
-		webviewState = new web_view.WebViewState();
+		webviewState = new webView.WebViewState();
 		context.globalState.update('webviewState', webviewState);
 	}
 
 	let sessionEvent = vscode.debug.onDidChangeActiveDebugSession((session) => {
-		web_view.onSessionChange(session);
+		webView.onSessionChange(session);
 	});
 
 	context.subscriptions.push(sessionEvent);
@@ -33,16 +32,16 @@ export function activate(context: vscode.ExtensionContext) {
 	let trackerFactory = vscode.debug.registerDebugAdapterTrackerFactory('*', {
 		createDebugAdapterTracker(session: vscode.DebugSession) {
 			return {
-				onWillReceiveMessage: (msg) => web_view.onDebugReceive(msg),
-				onDidSendMessage: (msg) => web_view.onDebugSend(msg)
+				onWillReceiveMessage: (msg) => webView.onDebugReceive(msg),
+				onDidSendMessage: (msg) => webView.onDebugSend(msg)
 			};
 		}
 	});
 	context.subscriptions.push(trackerFactory);
 
 	vscode.window.onDidChangeActiveColorTheme(() => {
-		web_view.onThemeChange();
-	})
+		webView.onThemeChange();
+	});
 }
 
-export function deactivate() {}
+export function deactivate() { }

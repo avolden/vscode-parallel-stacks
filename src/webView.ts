@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { createThreadTree, Node } from './node_tree';
+import { createThreadTree, Node } from './nodeTree';
 
 let currentPanel: vscode.WebviewPanel | undefined = undefined;
 let currentSession: vscode.DebugSession | undefined = undefined;
@@ -15,7 +15,8 @@ export class Deserializer implements vscode.WebviewPanelSerializer {
 		this.html = html;
 		this.context = context;
 	}
-	async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, state: unknown): Promise<void> {console.log(state);
+	async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, state: unknown): Promise<void> {
+		console.log(state);
 		currentPanel = webviewPanel;
 
 		initWebview(this.html, this.context);
@@ -41,7 +42,7 @@ async function initWebview(html: vscode.Uri, context: vscode.ExtensionContext) {
 		externalCode = 'class="toggle"';
 	}
 
-	let formattedData = eval('`'+data+'`');
+	let formattedData = eval('`' + data + '`');
 	currentPanel.webview.html = formattedData;
 
 	currentPanel.onDidDispose(() => {
@@ -62,8 +63,7 @@ async function initWebview(html: vscode.Uri, context: vscode.ExtensionContext) {
 						command: 'threads',
 						threads: root
 					};
-					if (currentPanel)
-						{currentPanel.webview.postMessage(msg);}
+					if (currentPanel) { currentPanel.webview.postMessage(msg); }
 				}
 				break;
 			case 'updateState':
@@ -100,28 +100,26 @@ export async function show(html: vscode.Uri, context: vscode.ExtensionContext) {
 export async function onSessionChange(session: vscode.DebugSession | undefined) {
 	currentSession = session;
 	if (currentSession) {
-			try {
-				let root: Node = await createThreadTree(currentSession);
+		try {
+			let root: Node = await createThreadTree(currentSession);
 
-				let msg = {
-					command: 'threads',
-					threads: root
-				};
-				if (currentPanel)
-					{currentPanel.webview.postMessage(msg);}
-			} catch (error) {
+			let msg = {
+				command: 'threads',
+				threads: root
+			};
+			if (currentPanel) { currentPanel.webview.postMessage(msg); }
+		} catch (error) {
 
-			}
 		}
+	}
 }
 
 export async function onDebugReceive(msg: any) {
 	if (msg.command === 'continue') {
 		let msg = {
-				command: 'continue'
-			};
-			if (currentPanel)
-				{currentPanel.webview.postMessage(msg);}
+			command: 'continue'
+		};
+		if (currentPanel) { currentPanel.webview.postMessage(msg); }
 	}
 	console.log(msg);
 }
@@ -139,8 +137,7 @@ export async function onDebugSend(msg: any) {
 				command: 'threads',
 				threads: root
 			};
-			if (currentPanel)
-				{currentPanel.webview.postMessage(msg);}
+			if (currentPanel) { currentPanel.webview.postMessage(msg); }
 		}
 	}
 }
@@ -149,6 +146,5 @@ export function onThemeChange() {
 	let msg = {
 		command: 'theme'
 	};
-	if (currentPanel)
-		{currentPanel.webview.postMessage(msg);}
+	if (currentPanel) { currentPanel.webview.postMessage(msg); }
 }
