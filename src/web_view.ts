@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
-import { createThreadTree, Node } from './node_tree'; 
+import { createThreadTree, Node } from './node_tree';
 
 let currentPanel: vscode.WebviewPanel | undefined = undefined;
+let currentSession: vscode.DebugSession | undefined = undefined;
 
 export class WebViewState {
 	external: boolean = true;
@@ -15,20 +16,61 @@ export class Deserializer implements vscode.WebviewPanelSerializer {
 		this.context = context;
 	}
 	async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, state: unknown): Promise<void> {console.log(state);
-		const data = (await vscode.workspace.fs.readFile(this.html)).toString();
+		currentPanel = webviewPanel;
 
-		let webview: vscode.Webview = webviewPanel.webview;
-		const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'res', 'main.js'));
-		const styleResetUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'res', 'reset.css'));
-		const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'res', 'main.css'));
-		const nonce = getNonce();
-
-		let webviewState: WebViewState | undefined = this.context.globalState.get('webviewState');
-		const externalCode = webviewState?.external || '';
-
-		let formattedData = eval('`'+data+'`');
-		webviewPanel.webview.html = formattedData;
+		initWebview(this.html, this.context);
 	}
+}
+
+async function initWebview(html: vscode.Uri, context: vscode.ExtensionContext) {
+	if (currentPanel === undefined) {
+		return;
+	}
+
+	const data = (await vscode.workspace.fs.readFile(html)).toString();
+
+	let webview: vscode.Webview = currentPanel.webview;
+	const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'res', 'main.js'));
+	const styleResetUri = webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'res', 'reset.css'));
+	const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'res', 'main.css'));
+	const nonce = getNonce();
+
+	let webviewState: WebViewState | undefined = context.globalState.get('webviewState');
+	let externalCode = '';
+	if (webviewState?.external) {
+		externalCode = 'class="toggle"';
+	}
+
+	let formattedData = eval('`'+data+'`');
+	currentPanel.webview.html = formattedData;
+
+	currentPanel.onDidDispose(() => {
+		currentPanel = undefined;
+	});
+
+	currentPanel.webview.onDidReceiveMessage(async msg => {
+		switch (msg.command) {
+			case 'update':
+				// HACK, onDidChangeActiveDebugSession is sometimes not triggering for the 1st launch
+				if (!currentSession && vscode.debug.activeDebugSession) {
+					currentSession = vscode.debug.activeDebugSession;
+				}
+				if (currentSession) {
+					let root: Node = await createThreadTree(currentSession);
+
+					let msg = {
+						command: 'threads',
+						threads: root
+					};
+					if (currentPanel)
+						{currentPanel.webview.postMessage(msg);}
+				}
+				break;
+			case 'updateState':
+				context.globalState.update('webviewState', msg.data);
+				break;
+		}
+	});
 }
 
 function getNonce() {
@@ -50,52 +92,63 @@ export async function show(html: vscode.Uri, context: vscode.ExtensionContext) {
 			localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'res')]
 		});
 
-		const data = (await vscode.workspace.fs.readFile(html)).toString();
-
-		let webview: vscode.Webview = currentPanel.webview;
-		const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'res', 'main.js'));
-		const styleResetUri = webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'res', 'reset.css'));
-		const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'res', 'main.css'));
-		const nonce = getNonce();
-
-		let webviewState: WebViewState | undefined = context.globalState.get('webviewState');
-		let externalCode = '';
-		if (webviewState?.external) {
-			externalCode = 'checked';
-		}
-
-		let formattedData = eval('`'+data+'`');
-		currentPanel.webview.html = formattedData;
-
-		currentPanel.onDidDispose(() => {
-			currentPanel = undefined;
-		});
-
-		currentPanel.webview.onDidReceiveMessage(async msg => {
-			switch (msg.command) {
-				case 'update':
-					let debugSession = vscode.debug.activeDebugSession;
-					if (debugSession) {
-						let root: Node = await createThreadTree(debugSession);
-						console.log(root);
-
-						if (debugSession.type == 'cppvsdbg' || debugSession.type == 'cppdbg') {
-							console.log('MS Debugger')
-						}
-
-						let msg = {
-							command: 'threads',
-							threads: root
-						};
-						if (currentPanel)
-							currentPanel.webview.postMessage(msg);
-					}
-					break;
-				case 'updateState':
-					context.globalState.update('webviewState', msg.data);
-					break;
-			}
-		});
+		initWebview(html, context);
 		currentPanel.reveal(vscode.ViewColumn.Active);
 	}
+}
+
+export async function onSessionChange(session: vscode.DebugSession | undefined) {
+	currentSession = session;
+	if (currentSession) {
+			try {
+				let root: Node = await createThreadTree(currentSession);
+
+				let msg = {
+					command: 'threads',
+					threads: root
+				};
+				if (currentPanel)
+					{currentPanel.webview.postMessage(msg);}
+			} catch (error) {
+
+			}
+		}
+}
+
+export async function onDebugReceive(msg: any) {
+	if (msg.command === 'continue') {
+		let msg = {
+				command: 'continue'
+			};
+			if (currentPanel)
+				{currentPanel.webview.postMessage(msg);}
+	}
+	console.log(msg);
+}
+
+export async function onDebugSend(msg: any) {
+	if (msg.event === 'stopped') {
+		// HACK, onDidChangeActiveDebugSession is sometimes not triggering for the 1st launch
+		if (!currentSession && vscode.debug.activeDebugSession) {
+			currentSession = vscode.debug.activeDebugSession;
+		}
+		if (currentSession) {
+			let root: Node = await createThreadTree(currentSession);
+
+			let msg = {
+				command: 'threads',
+				threads: root
+			};
+			if (currentPanel)
+				{currentPanel.webview.postMessage(msg);}
+		}
+	}
+}
+
+export function onThemeChange() {
+	let msg = {
+		command: 'theme'
+	};
+	if (currentPanel)
+		{currentPanel.webview.postMessage(msg);}
 }

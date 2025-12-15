@@ -30,32 +30,36 @@ form > * {
 	outline-color: var(--vscode-focusBorder) !important;
 }
 
-a {
-	color: var(--vscode-textLink-foreground);
-}
-
 body,html {
     margin: 0;
     padding: 0;
 }
 
-.ababa {
-	color: white;
-	font-weight: normal;
-	font-family: var(--vscode-editor-font-family);
-	font-size: var(--vscode-editor-font-size);
-	padding: 1em;
+#main-bar {
+	margin: 0;
+	padding: .2em;
+	background-color: var(--vscode-editorWidget-background);
 }
 
-.update-button {
-	width:min-content;
+#external-button {
+	width:fit-content;
 	padding: .5em 1em .5em 1em;
+	background-color: var(--vscode-editor-background);
+	-webkit-box-shadow:inset 0px 0px 0px 1px grey;
+    -moz-box-shadow:inset 0px 0px 0px 1px grey;
+    box-shadow:inset 0px 0px 0px 1px grey;
+}
+
+#external-button.toggle {
+	-webkit-box-shadow:inset 0px 0px 0px 1px var(--vscode-editorWidget-border);
+    -moz-box-shadow:inset 0px 0px 0px 1px var(--vscode-editorWidget-border);
+    box-shadow:inset 0px 0px 0px 1px var(--vscode-editorWidget-border);
 }
 
 #canvas-container {
 	position: relative;
 	width: 100%;
-	height: calc(100vh - 5em);
+	height: calc(100vh - 3.4em);
 	cursor: grab;
 	overflow: scroll;
 	margin: 0%;
@@ -65,21 +69,16 @@ body,html {
 #thread-canvas {
 	margin: 0%;
 	padding: 0px !important;
-	/* position: absolute;
-	top: 0px;
-	left: 0px;
-	width: 2000px;
-	height: 2000px; */
 }
 
-#popup {
+/*#popup {
 	position: fixed;
 	x: 200px;
 	y: 200px;
 	background-color: white;
 	z-index: 1;
 	color: black;
-}
+}*/
 
 a:hover,
 a:active {
@@ -98,7 +97,7 @@ button {
 	text-align: center;
 	outline: 1px solid transparent;
 	outline-offset: 2px !important;
-	color: var(--vscode-button-foreground);
+	color: var(--vscode-foreground);
 	background: var(--vscode-button-background);
 }
 

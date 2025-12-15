@@ -23,6 +23,26 @@ export function activate(context: vscode.ExtensionContext) {
 		webviewState = new web_view.WebViewState();
 		context.globalState.update('webviewState', webviewState);
 	}
+
+	let sessionEvent = vscode.debug.onDidChangeActiveDebugSession((session) => {
+		web_view.onSessionChange(session);
+	});
+
+	context.subscriptions.push(sessionEvent);
+
+	let trackerFactory = vscode.debug.registerDebugAdapterTrackerFactory('*', {
+		createDebugAdapterTracker(session: vscode.DebugSession) {
+			return {
+				onWillReceiveMessage: (msg) => web_view.onDebugReceive(msg),
+				onDidSendMessage: (msg) => web_view.onDebugSend(msg)
+			};
+		}
+	});
+	context.subscriptions.push(trackerFactory);
+
+	vscode.window.onDidChangeActiveColorTheme(() => {
+		web_view.onThemeChange();
+	})
 }
 
 export function deactivate() {}

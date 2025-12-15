@@ -1,5 +1,3 @@
-// This script will be run within the webview itself
-// It cannot access the main VS Code APIs directly.
 
 /**
  * @typedef Thread
@@ -45,9 +43,8 @@
 		external: true
 	};
 
-	let needStateUpdate = true
+	let needStateUpdate = true;
 	let vscodeState = /** @type {ViewState | undefined} */ (vscode.getState());
-	console.log(vscodeState);
 	if (vscodeState) {
 		state = vscodeState;
 		needStateUpdate = false;
@@ -65,6 +62,62 @@
 	if (!ctx) {
 		return;
 	}
+
+	function selectStyle() {
+		if (document.body.className === 'vscode-dark') {
+		const styleDark = {
+			codeFont: Number(getComputedStyle(canvas).getPropertyValue('--vscode-editor-font-size').slice(0, -2)) - 2 + 'px ' + getComputedStyle(canvas).getPropertyValue('--vscode-editor-font-family'),
+			font: getComputedStyle(canvas).getPropertyValue('--vscode-font-size') + ' ' + getComputedStyle(canvas).getPropertyValue('--vscode-font-family'),
+			canvasMargin: 15,
+			textMargin: 10,
+			nodeSpacing: 50,
+
+			textColor: 'white',
+			externalColor: 'darkgrey',
+
+			nodeColor: 'grey',
+			headerColor: 'white',
+			nodeLinkColor: 'lightgrey'
+		};
+		return styleDark;
+		}
+		else if (document.body.className === 'vscode-light') {
+			const styleLight = {
+				codeFont: Number(getComputedStyle(canvas).getPropertyValue('--vscode-editor-font-size').slice(0, -2)) - 2 + 'px ' + getComputedStyle(canvas).getPropertyValue('--vscode-editor-font-family'),
+				font: getComputedStyle(canvas).getPropertyValue('--vscode-font-size') + ' ' + getComputedStyle(canvas).getPropertyValue('--vscode-font-family'),
+				canvasMargin: 15,
+				textMargin: 10,
+				nodeSpacing: 50,
+
+				textColor: 'black',
+				externalColor: 'darkgrey',
+
+				nodeColor: 'grey',
+				headerColor: 'black',
+				nodeLinkColor: 'darkgrey'
+			};
+			return styleLight;
+		}
+		else {
+			// TODO high contrast
+			const styleDark = {
+				codeFont: Number(getComputedStyle(canvas).getPropertyValue('--vscode-editor-font-size').slice(0, -2)) - 2 + 'px ' + getComputedStyle(canvas).getPropertyValue('--vscode-editor-font-family'),
+				font: getComputedStyle(canvas).getPropertyValue('--vscode-font-size') + ' ' + getComputedStyle(canvas).getPropertyValue('--vscode-font-family'),
+				canvasMargin: 15,
+				textMargin: 10,
+				nodeSpacing: 50,
+
+				textColor: 'white',
+				externalColor: 'darkgrey',
+
+				nodeColor: 'grey',
+				headerColor: 'white',
+				nodeLinkColor: 'lightgrey'
+			};
+			return styleDark;
+		}
+	}
+	let style = selectStyle();
 
 	// const menuNode = document.createElement('div');
 	// menuNode.id = 'menu';
@@ -100,19 +153,6 @@
 
 	/**
 	 * @param {ThreadNode} node
-	 * @returns {number} children
-	 */
-	function countTotalChildren(node) {
-		let children = 0;
-		for (var i = 0; i < node.children.length; ++i) {
-			children += countTotalChildren(node.children[i]);
-		}
-
-		return children + node.children.length;
-	}
-
-	/**
-	 * @param {ThreadNode} node
 	 * @returns {{x: number, y: number}} size
 	 */
 	function calcNodeSize(node) {
@@ -120,31 +160,31 @@
 			return {x: 0, y: 0};
 		}
 
-		ctx.font = getComputedStyle(canvas).getPropertyValue('--vscode-editor-font-size') + ' ' + getComputedStyle(canvas).getPropertyValue('--vscode-editor-font-family');
+		ctx.font = style.codeFont;
+		ctx.textBaseline = 'middle';
 
 		const externalText = '[External Code]';
 		let externalNode = true;
 		let externalBlockStart = -1;
-		// TODO move hardcode values to css
 		let size = {x: 0, y: 0};
 		for (var i = 0; i < node.frames.length; ++i) {
-			if (state.external || (!state.external && node.frames[i].type == 'normal')) {
+			if (state.external || (!state.external && node.frames[i].type === 'normal')) {
 			let frameSize = ctx.measureText(node.frames[i].name);
-				if (size.x < frameSize.width + 10) {
-					size.x = frameSize.width + 10;
+				if (size.x < frameSize.width + style.textMargin) {
+					size.x = frameSize.width + style.textMargin;
 				}
-				size.y += frameSize.fontBoundingBoxAscent + frameSize.fontBoundingBoxDescent + 10;
+				size.y += frameSize.fontBoundingBoxAscent + frameSize.fontBoundingBoxDescent + style.textMargin;
 				externalNode = false;
 				externalBlockStart = -1;
 			}
-			else if (!state.external && node.frames[i].type == 'external') {
-				if (externalBlockStart == -1) {
+			else if (!state.external && node.frames[i].type === 'external') {
+				if (externalBlockStart === -1) {
 					externalBlockStart = i;
 					let frameSize = ctx.measureText(externalText);
-					if (size.x < frameSize.width + 10) {
-						size.x = frameSize.width + 10;
+					if (size.x < frameSize.width + style.textMargin) {
+						size.x = frameSize.width + style.textMargin;
 					}
-					size.y += frameSize.fontBoundingBoxAscent + frameSize.fontBoundingBoxDescent + 10;
+					size.y += frameSize.fontBoundingBoxAscent + frameSize.fontBoundingBoxDescent + style.textMargin;
 				}
 			}
 		}
@@ -154,7 +194,8 @@
 		}
 
 		// Node header
-		let headerText = ''
+		ctx.font = style.font;
+		let headerText = '';
 		if (node.threads.length > 1) {
 			headerText = node.threads.length + ' Threads';
 		}
@@ -162,10 +203,12 @@
 			headerText = node.threads[0].name + ' (' + node.threads[0].id + ')';
 		}
 		let headerSize = ctx.measureText(headerText);
-		size.y += headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + 10;
-		if (size.x < headerSize.width + 10) {
-			size.x = headerSize.width + 10;
+		size.y += headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + style.textMargin;
+		if (size.x < headerSize.width + style.textMargin) {
+			size.x = headerSize.width + style.textMargin;
 		}
+		size.x = Math.round(size.x);
+		size.y = Math.round(size.y);
 		return size;
 	}
 
@@ -177,13 +220,11 @@
 		if (!ctx) {
 			return;
 		}
-		ctx.font = getComputedStyle(canvas).getPropertyValue('--vscode-editor-font-size') + ' ' + getComputedStyle(canvas).getPropertyValue('--vscode-editor-font-family');
 
-		// TODO move hardcode values to css
 		let childrenBB = {x: 0, y: 0};
 		for (var i = 0; i < node.children.length; ++i) {
 			calcNodeBB(node.children[i]);
-			if (childrenBB.x != 0) {
+			if (childrenBB.x !== 0) {
 				childrenBB.x += 50;
 			}
 
@@ -195,7 +236,7 @@
 		}
 
 		let size = calcNodeSize(node);
-		if (childrenBB.x != 0 && childrenBB.y != 0) {
+		if (childrenBB.x !== 0 && childrenBB.y !== 0) {
 			node.bb.y = 50;
 			node.bb.x = childrenBB.x > size.x ? childrenBB.x : size.x;
 			node.bb.y += childrenBB.y + size.y;
@@ -267,10 +308,12 @@
 	}
 
 	function resizeCanvas() {
-		if (threadsData != undefined && container != undefined) {
-			canvas.width = threadsData.bb.x + 50 > container.clientWidth ? threadsData.bb.x + 50: container.clientWidth;
-			canvas.height = threadsData.bb.y + 50 > container.clientHeight ? threadsData.bb.y + 50: container.clientHeight;
+		// TODO Remove Y scrollbar if not needed
+		if (threadsData !== undefined && container !== null) {
+			canvas.width = (threadsData.bb.x + 50 > container.clientWidth ? threadsData.bb.x + 50: container.clientWidth) * window.devicePixelRatio;
+			canvas.height = (threadsData.bb.y > container.clientHeight - 10 ? threadsData.bb.y : container.clientHeight - 10) * window.devicePixelRatio;
 		}
+		ctx?.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0 ,0);
 
 		drawGraph();
 	}
@@ -287,21 +330,20 @@
 
 		const size = calcNodeSize(node);
 
-		if (size.x != 0 && size.y != 0) {
+		if (size.x !== 0 && size.y !== 0) {
 			const externalText = '[External Code]';
 
-			ctx.strokeStyle = 'grey'
-			ctx.strokeRect(posX, posY, size.x, size.y);
+			ctx.strokeStyle = style.nodeColor;
+			ctx.strokeRect(posX + 0.5, posY + 0.5, size.x, size.y);
 
-			ctx.fillStyle = 'white';
-			ctx.font = getComputedStyle(canvas).getPropertyValue('--vscode-editor-font-size') + ' ' + getComputedStyle(canvas).getPropertyValue('--vscode-editor-font-family');
+			ctx.lineWidth = 1;
+			ctx.fillStyle = style.textColor;
 			ctx.textBaseline = 'middle';
 
 			let externalBlockStart = -1;
 			let line = 0;
 
-			// TODO move hardcode values to css
-			let headerText = ''
+			let headerText = '';
 			if (node.threads.length > 1) {
 				headerText = node.threads.length + ' Threads';
 			}
@@ -310,56 +352,60 @@
 			}
 			let headerSize = ctx.measureText(headerText);
 
-			ctx.fillText(headerText, posX + (size.x - headerSize.width) / 2, posY + 15 + (headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + 10)*line);
-			ctx.strokeStyle = 'white'
-			ctx.strokeRect(posX, posY, size.x, (headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + 10) * (line+1));
-			++line;
+			ctx.font = style.font;
+			ctx.fillText(headerText, posX + (size.x - headerSize.width) / 2, posY + (headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + style.textMargin)/2);
+			ctx.strokeStyle = style.headerColor;
+			ctx.strokeRect(posX + 0.5, posY + 0.5, size.x, (headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + style.textMargin) * (line+1));
+			let headerLine = (headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + style.textMargin);
 
+			ctx.font = style.codeFont;
 			for (var i = 0; i < node.frames.length; ++i) {
 				let name = node.frames[node.frames.length - 1 - i].name;
-				if (node.frames[node.frames.length - 1 - i].type == 'external') {
-					if (state.external || externalBlockStart == -1) {
+				if (node.frames[node.frames.length - 1 - i].type === 'external') {
+					if (state.external || externalBlockStart === -1) {
 						externalBlockStart = node.frames.length - 1 - i;
-						ctx.fillStyle = 'darkgrey'
+						ctx.fillStyle = style.externalColor;
 						if (!state.external)
-							name = externalText;
+							{name = externalText;}
 					} else {
 						continue;
 					}
 				}
 				else {
 					externalBlockStart = -1;
-					ctx.fillStyle = 'white';
+					ctx.fillStyle = style.textColor;
 				}
 
 				let textSize = ctx.measureText(name);
-				ctx.fillText(name, posX + 5, posY + 15 + (textSize.fontBoundingBoxAscent + textSize.fontBoundingBoxDescent + 10)*line);
+				const lineY = (textSize.fontBoundingBoxAscent + textSize.fontBoundingBoxDescent + style.textMargin);
+
+				ctx.fillText(name, posX + style.textMargin/2, posY + headerLine + lineY/2 + lineY*line);
 
 				if (i < node.frames.length - 1) {
-					ctx.strokeStyle = 'grey'
+					ctx.strokeStyle = style.nodeColor;
 					ctx.beginPath();
-					ctx.moveTo(posX, posY + (textSize.fontBoundingBoxAscent + textSize.fontBoundingBoxDescent + 10) * (line+1));
-					ctx.lineTo(posX + size.x, posY + (textSize.fontBoundingBoxAscent + textSize.fontBoundingBoxDescent + 10) * (line+1))
+					ctx.moveTo(posX + 0.5, posY + 0.5 + headerLine + lineY * (line+1) + 0.5);
+					ctx.lineTo(posX + 0.5 + size.x, posY + 0.5 + headerLine + lineY * (line+1) + 0.5);
 					ctx.stroke();
 				}
 				++line;
 			}
 		}
 
-		let pos = {x: posX - node.bb.x / 2 + size.x / 2, y: posY - 50};
+		let pos = {x: posX - node.bb.x / 2 + size.x / 2, y: posY - style.nodeSpacing};
 		for (var i = 0; i < node.children.length; ++i) {
 			const childSize = calcNodeSize(node.children[i]);
-			if (childSize.x != 0 && childSize.y != 0) {
-				if (size.x != 0 && size.y != 0) {
-					ctx.strokeStyle = 'lightgray'
+			if (childSize.x !== 0 && childSize.y !== 0) {
+				if (size.x !== 0 && size.y !== 0) {
+					ctx.strokeStyle = style.nodeLinkColor;
 					ctx.beginPath();
-					ctx.moveTo(posX + size.x / 2, posY);
-					ctx.lineTo(pos.x + node.children[i].bb.x / 2, pos.y)
+					ctx.moveTo(posX + 0.5 + size.x / 2, posY + 0.5);
+					ctx.lineTo(pos.x + 0.5 + node.children[i].bb.x / 2, pos.y + 0.5);
 					ctx.stroke();
 				}
 
 				drawNode(node.children[i], pos.x + (node.children[i].bb.x - childSize.x) / 2, pos.y - childSize.y);
-				pos.x += node.children[i].bb.x + 50;
+				pos.x += node.children[i].bb.x + style.nodeSpacing;
 			}
 		}
 	}
@@ -372,27 +418,7 @@
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
 
 		let size = calcNodeSize(threadsData);
-		drawNode(threadsData, (threadsData.bb.x - size.x) / 2 + 10, threadsData.bb.y - size.y + 10);
-
-		// for (var i = 0; i < 10; ++i) {
-		// 	var posx = 15 + 300*i;
-		// 	for (var j = 0; j < 10; ++j) {
-		// 		var posy = 15 + 300*j;
-		// 		ctx.fillStyle = 'white';
-		// 		ctx.font = getComputedStyle(canvas).getPropertyValue('--vscode-editor-font-size') + ' ' + getComputedStyle(canvas).getPropertyValue('--vscode-editor-font-family');
-		// 		ctx.textBaseline = 'middle';
-		// 		ctx.fillText("ABABAB", posx + 15, posy + 15, 190);
-		// 		ctx.strokeStyle = 'grey'
-		// 		ctx.lineWidth = 1;
-		// 		ctx.strokeRect(posx, posy, 200, 200);
-		// 		ctx.beginPath();
-		// 		ctx.moveTo(posx, 45);
-		// 		ctx.lineTo(posx + 200, 45)
-		// 		ctx.stroke();
-		// 	}
-		// }
-
-		// ctx.strokeRect(1815, 1815, 200, 200);
+		drawNode(threadsData, (threadsData.bb.x - size.x) / 2 + style.canvasMargin, threadsData.bb.y - size.y + style.canvasMargin);
 	}
 
 	document.addEventListener('DOMContentLoaded', () => {
@@ -429,31 +455,31 @@
         switch (message.command) {
             case 'threads':
 				threadsData = message.threads;
-				if (threadsData != undefined) {
+				if (threadsData !== undefined) {
 					calcNodeBB(threadsData);
-					console.log(threadsData)
 					resizeCanvas();
 				}
+				else {
+					ctx.clearRect(0, 0, canvas.width, canvas.height);
+					// TODO msg to tell no debug session is started
+				}
                 break;
+			case 'continue':
+				ctx.fillStyle = '#00000063';
+				ctx.fillRect(0, 0, canvas.width, canvas.height);
+				break;
+			case 'theme':
+				style = selectStyle();
+				drawGraph();
+				break;
         }
     });
 
-	const button = document.getElementById('update-button');
-	button?.addEventListener('click', () => {
+	const button = document.getElementById('external-button');
+	button?.addEventListener('click', (e) => {
 		console.log('update');
-		vscode.postMessage({
-			command: 'update'
-		});
-	})
+		button.classList.toggle('toggle');
 
-	const externalToggle = /** @type {HTMLInputElement} */ (document.getElementById('external-code'));
-	if (needStateUpdate) {
-		state.external = externalToggle.checked;
-	}
-	else {
-		externalToggle.checked = state.external;
-	}
-	externalToggle.addEventListener('click', () => {
 		state.external = !state.external;
 
 		vscode.postMessage({
@@ -461,12 +487,19 @@
 			data: state
 		});
 
-		if (threadsData != undefined) {
+		if (threadsData !== undefined) {
 			calcNodeBB(threadsData);
-			console.log(threadsData)
+			console.log(threadsData);
 			resizeCanvas();
 		}
 	});
+	if (needStateUpdate) {
+		state.external = button?.className === 'toggle';
+	}
+	else {
+		if (state.external)
+			{button?.classList.toggle('toggle');}
+	}
 
 	needStateUpdate = false;
 }());

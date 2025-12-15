@@ -99,6 +99,8 @@ export async function createThreadTree(debugSession: vscode.DebugSession) {
 		let child: Node = new Node();
 		child.threads.push(thread);
 
+		// TODO correctly respect request specs.
+		// Need to loop over requests until frames retrieved == totalFrames
 		const framesResponse = await debugSession.customRequest('stackTrace', {
 			threadId: th.id,
 			startFrame: 0,
