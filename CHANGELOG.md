@@ -1,9 +1,7 @@
-# Change Log
+# Changelog
 
-All notable changes to the "thread-graph" extension will be documented in this file.
+## Unreleased
 
-Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
-
-## [Unreleased]
+## 0.1
 
 - Initial release

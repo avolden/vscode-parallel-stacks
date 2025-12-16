@@ -2,12 +2,14 @@
   "name": "thread-graph",
   "displayName": "Thread Graph",
   "description": "Shows threads from a debugging session as a graph view",
+  "publisher": "blue-tree",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.106.0"
   },
   "categories": [
-	"Other"
+	"Other",
+	"Debuggers"
   ],
   "activationEvents": [
 	"onCommand:callstack-show",
@@ -19,12 +21,12 @@
     "commands": [
       {
         "command": "thread-graph.callstack-show",
-        "title": "Hello World",
-		    "icon": "$(symbol-class)"
+        "title": "Thread Graph: Show",
+		"icon": "$(symbol-class)"
       },
       {
         "command": "thread-graph.show",
-        "title": "Show thread graph"
+        "title": "Thread Graph: Show"
       }
     ],
 	"menus": {
