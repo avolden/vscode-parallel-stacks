@@ -7,21 +7,17 @@ The extensions adds a window to display a thread graph of the currently debugged
 Display the thread graph.
 Button to toggle external code display or not.
 
+TODO info to open webview
+
 ## Known Issues
 
 - Hiding external code also hides parent nodes containing only external code
 - Nodes with multiple threads cannot show the treads IDs and their name.
 - Showing the window for the first time while a debug session is active prevent the window from correctly respond to debug events (see microsoft/vscode#282807)
 
-## Roadmap
+## Roadmap/TODO list
 
 - [ ] Show tooltip on nodes having multiple threads
 - [ ] Change active stack item in the webview (Currently impossible, see microsoft/vscode#281784)
-
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 0.1
-
-Initial release of Threa Graph
+- [ ] Display a text when the view is opened and the debugger is not paused
+- [ ] Improve node link rendering

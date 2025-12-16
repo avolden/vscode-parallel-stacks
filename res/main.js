@@ -21,6 +21,7 @@
  * @property {ThreadNode[]} children
  *
  * @property {{x: number, y: number}} bb - bounding box of the node, including its children
+ * @property {{x: number, y: number}} size - size of the node
  */
 
 /**
@@ -153,11 +154,11 @@
 
 	/**
 	 * @param {ThreadNode} node
-	 * @returns {{x: number, y: number}} size
 	 */
 	function calcNodeSize(node) {
+		node.size = { x: 0, y: 0 };
 		if (!ctx) {
-			return { x: 0, y: 0 };
+			return;
 		}
 
 		ctx.font = style.codeFont;
@@ -190,7 +191,16 @@
 		}
 
 		if (externalNode && !state.external) {
-			return { x: 0, y: 0 };
+			let showExternalNode = false;
+			for (var i = 0; i < node.children.length; ++i) {
+				if (node.children[i].bb.x !== 0 || node.children[i].bb.y !== 0) {
+					showExternalNode = true;
+				}
+			}
+
+			if (!showExternalNode) {
+				return;
+			}
 		}
 
 		// Node header
@@ -209,7 +219,7 @@
 		}
 		size.x = Math.round(size.x);
 		size.y = Math.round(size.y);
-		return size;
+		node.size = size;
 	}
 
 	/**
@@ -224,7 +234,7 @@
 		let childrenBB = { x: 0, y: 0 };
 		for (var i = 0; i < node.children.length; ++i) {
 			calcNodeBB(node.children[i]);
-			if (childrenBB.x !== 0) {
+			if (childrenBB.x !== 0 && node.children[i].bb.x !== 0) {
 				childrenBB.x += 50;
 			}
 
@@ -235,14 +245,15 @@
 			}
 		}
 
-		let size = calcNodeSize(node);
+		calcNodeSize(node);
 		if (childrenBB.x !== 0 && childrenBB.y !== 0) {
 			node.bb.y = 50;
-			node.bb.x = childrenBB.x > size.x ? childrenBB.x : size.x;
-			node.bb.y += childrenBB.y + size.y;
+			node.bb.x = childrenBB.x > node.size.x ? childrenBB.x : node.size.x;
+			node.bb.y += childrenBB.y + node.size.y;
 		}
 		else {
-			node.bb = size;
+			node.bb.x = node.size.x;
+			node.bb.y = node.size.y;
 		}
 	}
 
@@ -328,21 +339,19 @@
 			return;
 		}
 
-		const size = calcNodeSize(node);
-
-		if (size.x !== 0 && size.y !== 0) {
+		if (node.size.x !== 0 && node.size.y !== 0) {
 			const externalText = '[External Code]';
 
 			ctx.strokeStyle = style.nodeColor;
-			ctx.strokeRect(posX + 0.5, posY + 0.5, size.x, size.y);
+			ctx.strokeRect(posX + 0.5, posY + 0.5, node.size.x, node.size.y);
 
 			ctx.lineWidth = 1;
 			ctx.fillStyle = style.textColor;
 			ctx.textBaseline = 'middle';
 
-			let externalBlockStart = -1;
 			let line = 0;
 
+			ctx.font = style.font;
 			let headerText = '';
 			if (node.threads.length > 1) {
 				headerText = node.threads.length + ' Threads';
@@ -352,58 +361,60 @@
 			}
 			let headerSize = ctx.measureText(headerText);
 
-			ctx.font = style.font;
-			ctx.fillText(headerText, posX + (size.x - headerSize.width) / 2, posY + (headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + style.textMargin) / 2);
+			ctx.fillText(headerText, posX + (node.size.x - headerSize.width) / 2, posY + 1 + (headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + style.textMargin) / 2);
 			ctx.strokeStyle = style.headerColor;
-			ctx.strokeRect(posX + 0.5, posY + 0.5, size.x, (headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + style.textMargin) * (line + 1));
+			ctx.strokeRect(posX + 0.5, posY + 0.5, node.size.x, (headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + style.textMargin) * (line + 1));
 			let headerLine = (headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + style.textMargin);
 
 			ctx.font = style.codeFont;
 			for (var i = 0; i < node.frames.length; ++i) {
 				let name = node.frames[node.frames.length - 1 - i].name;
 				if (node.frames[node.frames.length - 1 - i].type === 'external') {
-					if (state.external || externalBlockStart === -1) {
-						externalBlockStart = node.frames.length - 1 - i;
-						ctx.fillStyle = style.externalColor;
-						if (!state.external) { name = externalText; }
-					} else {
-						continue;
+					ctx.fillStyle = style.externalColor;
+					if (!state.external) {
+						for (var j = i + 1; j < node.frames.length; ++j) {
+							if (node.frames[node.frames.length - 1 - j].type === 'external') {
+								++i;
+							}
+							else {
+								break;
+							}
+						}
+						name = externalText;
 					}
 				}
 				else {
-					externalBlockStart = -1;
 					ctx.fillStyle = style.textColor;
 				}
 
 				let textSize = ctx.measureText(name);
 				const lineY = (textSize.fontBoundingBoxAscent + textSize.fontBoundingBoxDescent + style.textMargin);
 
-				ctx.fillText(name, posX + style.textMargin / 2, posY + headerLine + lineY / 2 + lineY * line);
+				ctx.fillText(name, posX + style.textMargin / 2, posY + 1 + headerLine + lineY / 2 + lineY * line);
 
 				if (i < node.frames.length - 1) {
 					ctx.strokeStyle = style.nodeColor;
 					ctx.beginPath();
-					ctx.moveTo(posX + 0.5, posY + 0.5 + headerLine + lineY * (line + 1) + 0.5);
-					ctx.lineTo(posX + 0.5 + size.x, posY + 0.5 + headerLine + lineY * (line + 1) + 0.5);
+					ctx.moveTo(posX + 0.5, posY + 0.5 + headerLine + lineY * (line + 1));
+					ctx.lineTo(posX + 0.5 + node.size.x, posY + 0.5 + headerLine + lineY * (line + 1));
 					ctx.stroke();
 				}
 				++line;
 			}
 		}
 
-		let pos = { x: posX - node.bb.x / 2 + size.x / 2, y: posY - style.nodeSpacing };
+		let pos = { x: posX - node.bb.x / 2 + node.size.x / 2, y: posY - style.nodeSpacing };
 		for (var i = 0; i < node.children.length; ++i) {
-			const childSize = calcNodeSize(node.children[i]);
-			if (childSize.x !== 0 && childSize.y !== 0) {
-				if (size.x !== 0 && size.y !== 0) {
+			if (node.children[i].size.x !== 0 && node.children[i].size.y !== 0) {
+				if (node.size.x !== 0 && node.size.y !== 0) {
 					ctx.strokeStyle = style.nodeLinkColor;
 					ctx.beginPath();
-					ctx.moveTo(posX + 0.5 + size.x / 2, posY + 0.5);
+					ctx.moveTo(posX + 0.5 + node.size.x / 2, posY + 0.5);
 					ctx.lineTo(pos.x + 0.5 + node.children[i].bb.x / 2, pos.y + 0.5);
 					ctx.stroke();
 				}
 
-				drawNode(node.children[i], pos.x + (node.children[i].bb.x - childSize.x) / 2, pos.y - childSize.y);
+				drawNode(node.children[i], pos.x + (node.children[i].bb.x - node.children[i].size.x) / 2, pos.y - node.children[i].size.y);
 				pos.x += node.children[i].bb.x + style.nodeSpacing;
 			}
 		}
@@ -416,8 +427,7 @@
 
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-		let size = calcNodeSize(threadsData);
-		drawNode(threadsData, (threadsData.bb.x - size.x) / 2 + style.canvasMargin, threadsData.bb.y - size.y + style.canvasMargin);
+		drawNode(threadsData, (threadsData.bb.x - threadsData.size.x) / 2 + style.canvasMargin, threadsData.bb.y - threadsData.size.y + style.canvasMargin);
 	}
 
 	document.addEventListener('DOMContentLoaded', () => {
@@ -476,7 +486,6 @@
 
 	const button = document.getElementById('external-button');
 	button?.addEventListener('click', (e) => {
-		console.log('update');
 		button.classList.toggle('toggle');
 
 		state.external = !state.external;

@@ -3,7 +3,10 @@
   "displayName": "Thread Graph",
   "description": "Shows threads from a debugging session as a graph view",
   "publisher": "blue-tree",
-  "version": "0.0.1",
+  "repository": {
+	"url": "https://github.com/BluTree/vscode-thread-graph"
+  },
+  "version": "0.1.0",
   "engines": {
     "vscode": "^1.106.0"
   },
