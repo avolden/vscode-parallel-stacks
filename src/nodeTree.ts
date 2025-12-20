@@ -88,33 +88,40 @@ export async function createThreadTree(debugSession: vscode.DebugSession) {
 	let root = new Node();
 	let children: Node[] = [];
 
-	for (const th of (await debugSession.customRequest('threads')).threads) {
-		let thread = new Thread();
-		thread.id = th.id;
-		thread.name = th.name;
+	try {
+		for (const th of (await debugSession.customRequest('threads')).threads) {
+			let thread = new Thread();
+			thread.id = th.id;
+			thread.name = th.name;
 
-		root.threads.push(thread);
+			root.threads.push(thread);
 
-		let child: Node = new Node();
-		child.threads.push(thread);
+			let child: Node = new Node();
+			child.threads.push(thread);
 
-		// TODO correctly respect request specs.
-		// Need to loop over requests until frames retrieved == totalFrames
-		const framesResponse = await debugSession.customRequest('stackTrace', {
-			threadId: th.id,
-			startFrame: 0,
-			levels: 200
-		});
-
-		for (const frame of framesResponse.stackFrames || []) {
-			child.frames.push({
-				name: frame.name || '',
-				type: frame.source === undefined ? 'external' : 'normal'
+			// TODO correctly respect request specs.
+			// Need to loop over requests until frames retrieved == totalFrames
+			const framesResponse = await debugSession.customRequest('stackTrace', {
+				threadId: th.id,
+				startFrame: 0,
+				levels: 200
 			});
-		}
-		child.frames.reverse();
 
-		children.push(child);
+			for (const frame of framesResponse.stackFrames || []) {
+				child.frames.push({
+					name: frame.name || '',
+					type: frame.source === undefined ? 'external' : 'normal'
+				});
+			}
+			child.frames.reverse();
+
+			children.push(child);
+		}
+	}
+	catch (e: any) {
+		if (e.name === 'CodeExpectedError') {
+			return undefined;
+		}
 	}
 
 	parseNodes(root, children);

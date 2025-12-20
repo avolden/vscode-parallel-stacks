@@ -57,13 +57,21 @@ async function initWebview(html: vscode.Uri, context: vscode.ExtensionContext) {
 					currentSession = vscode.debug.activeDebugSession;
 				}
 				if (currentSession) {
-					let root: Node = await createThreadTree(currentSession);
+					let root: Node | undefined = await createThreadTree(currentSession);
 
-					let msg = {
-						command: 'threads',
-						threads: root
-					};
-					if (currentPanel) { currentPanel.webview.postMessage(msg); }
+					if (root) {
+						let msg = {
+							command: 'threads',
+							threads: root
+						};
+						if (currentPanel) { currentPanel.webview.postMessage(msg); }
+					}
+					else {
+						let msg = {
+							command: 'continue'
+						};
+						if (currentPanel) { currentPanel.webview.postMessage(msg); }
+					}
 				}
 				break;
 			case 'updateState':
@@ -101,13 +109,21 @@ export async function onSessionChange(session: vscode.DebugSession | undefined) 
 	currentSession = session;
 	if (currentSession) {
 		try {
-			let root: Node = await createThreadTree(currentSession);
+			let root: Node | undefined = await createThreadTree(currentSession);
 
-			let msg = {
-				command: 'threads',
-				threads: root
-			};
-			if (currentPanel) { currentPanel.webview.postMessage(msg); }
+			if (root) {
+				let msg = {
+					command: 'threads',
+					threads: root
+				};
+				if (currentPanel) { currentPanel.webview.postMessage(msg); }
+			}
+			else {
+				let msg = {
+					command: 'continue'
+				};
+				if (currentPanel) { currentPanel.webview.postMessage(msg); }
+			}
 		} catch (error) {
 
 		}
@@ -115,13 +131,18 @@ export async function onSessionChange(session: vscode.DebugSession | undefined) 
 }
 
 export async function onDebugReceive(msg: any) {
-	if (msg.command === 'continue') {
-		let msg = {
-			command: 'continue'
-		};
-		if (currentPanel) { currentPanel.webview.postMessage(msg); }
+	switch (msg.command) {
+		case 'continue':
+		case 'initialize':
+		case 'disconnect':
+			let postMsg = {
+				command: msg.command
+			};
+			if (currentPanel) {
+				currentPanel.webview.postMessage(postMsg);
+			}
+			break;
 	}
-	console.log(msg);
 }
 
 export async function onDebugSend(msg: any) {
@@ -131,7 +152,7 @@ export async function onDebugSend(msg: any) {
 			currentSession = vscode.debug.activeDebugSession;
 		}
 		if (currentSession) {
-			let root: Node = await createThreadTree(currentSession);
+			let root: Node | undefined = await createThreadTree(currentSession);
 
 			let msg = {
 				command: 'threads',

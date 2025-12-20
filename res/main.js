@@ -22,6 +22,7 @@
  *
  * @property {{x: number, y: number}} bb - bounding box of the node, including its children
  * @property {{x: number, y: number}} size - size of the node
+ * @property {{x: number, y: number}} pos - position of the node
  */
 
 /**
@@ -43,6 +44,7 @@
 	let state = {
 		external: true
 	};
+	let darken = true;
 
 	let needStateUpdate = true;
 	let vscodeState = /** @type {ViewState | undefined} */ (vscode.getState());
@@ -64,6 +66,11 @@
 		return;
 	}
 
+	const overlayText = document.getElementById("canvas-info");
+	if (!overlayText) {
+		return;
+	}
+
 	function selectStyle() {
 		if (document.body.className === 'vscode-dark') {
 			const styleDark = {
@@ -71,7 +78,7 @@
 				font: getComputedStyle(canvas).getPropertyValue('--vscode-font-size') + ' ' + getComputedStyle(canvas).getPropertyValue('--vscode-font-family'),
 				canvasMargin: 15,
 				textMargin: 10,
-				nodeSpacing: 50,
+				nodeSpacing: 51,
 
 				textColor: 'white',
 				externalColor: 'darkgrey',
@@ -217,8 +224,8 @@
 		if (size.x < headerSize.width + style.textMargin) {
 			size.x = headerSize.width + style.textMargin;
 		}
-		size.x = Math.round(size.x);
-		size.y = Math.round(size.y);
+		size.x = Math.floor(size.x);
+		size.y = Math.floor(size.y);
 		node.size = size;
 	}
 
@@ -254,6 +261,29 @@
 		else {
 			node.bb.x = node.size.x;
 			node.bb.y = node.size.y;
+		}
+	}
+
+	/**
+	 * @param {ThreadNode} node
+	 */
+	function calcNodePos(node) {
+		if (node === threadsData) {
+			node.pos = { x: Math.floor((node.bb.x - node.size.x) / 2) + style.canvasMargin, y: node.bb.y - node.size.y + style.canvasMargin };
+		}
+
+		if (node.size.x === -1 || node.size.y === -1) {
+			node.pos = { x: -1, y: -1 };
+		}
+
+		let childPos = { x: Math.floor(node.pos.x - node.bb.x / 2 + node.size.x / 2), y: node.pos.y - style.nodeSpacing };
+		for (var i = 0; i < node.children.length; ++i) {
+			node.children[i].pos = { x: -1, y: -1 };
+			if (node.children[i].size.x !== 0 && node.children[i].size.y !== 0) {
+				node.children[i].pos = { x: childPos.x + Math.floor((node.children[i].bb.x - node.children[i].size.x) / 2), y: childPos.y - node.children[i].size.y };
+				calcNodePos(node.children[i]);
+				childPos.x += node.children[i].bb.x + style.nodeSpacing;
+			}
 		}
 	}
 
@@ -318,23 +348,39 @@
 		slider.scrollTop = newScroll.y;
 	}
 
-	function resizeCanvas() {
+	function redrawCanvas() {
+		if (!ctx) {
+			return;
+		}
+
 		// TODO Remove Y scrollbar if not needed
 		if (threadsData !== undefined && container !== null) {
 			canvas.width = (threadsData.bb.x + 50 > container.clientWidth ? threadsData.bb.x + 50 : container.clientWidth) * window.devicePixelRatio;
-			canvas.height = (threadsData.bb.y > container.clientHeight - 10 ? threadsData.bb.y : container.clientHeight - 10) * window.devicePixelRatio;
+			canvas.height = (threadsData.bb.y > container.clientHeight - 3 ? threadsData.bb.y : container.clientHeight - 3) * window.devicePixelRatio;
 		}
-		ctx?.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+		else if (threadsData === undefined && container !== null) {
+			canvas.width = container.clientWidth * window.devicePixelRatio;
+			canvas.height = container.clientHeight - 3 * window.devicePixelRatio;
+		}
+		ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
 
-		drawGraph();
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+		if (threadsData !== undefined) {
+			drawNode(threadsData);
+		}
+
+		console.log(darken);
+		if (darken) {
+			ctx.fillStyle = '#00000063';
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+		}
 	}
 
 	/**
 	 * @param {ThreadNode} node
-	 * @param {number} posX
-	 * @param {number} posY
 	 */
-	function drawNode(node, posX, posY) {
+	function drawNode(node) {
 		if (!ctx) {
 			return;
 		}
@@ -343,7 +389,7 @@
 			const externalText = '[External Code]';
 
 			ctx.strokeStyle = style.nodeColor;
-			ctx.strokeRect(posX + 0.5, posY + 0.5, node.size.x, node.size.y);
+			ctx.strokeRect(node.pos.x + 0.5, node.pos.y + 0.5, node.size.x, node.size.y);
 
 			ctx.lineWidth = 1;
 			ctx.fillStyle = style.textColor;
@@ -361,9 +407,9 @@
 			}
 			let headerSize = ctx.measureText(headerText);
 
-			ctx.fillText(headerText, posX + (node.size.x - headerSize.width) / 2, posY + 1 + (headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + style.textMargin) / 2);
+			ctx.fillText(headerText, node.pos.x + (node.size.x - headerSize.width) / 2, node.pos.y + 1 + (headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + style.textMargin) / 2);
 			ctx.strokeStyle = style.headerColor;
-			ctx.strokeRect(posX + 0.5, posY + 0.5, node.size.x, (headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + style.textMargin) * (line + 1));
+			ctx.strokeRect(node.pos.x + 0.5, node.pos.y + 0.5, node.size.x, (headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + style.textMargin) * (line + 1));
 			let headerLine = (headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + style.textMargin);
 
 			ctx.font = style.codeFont;
@@ -390,51 +436,80 @@
 				let textSize = ctx.measureText(name);
 				const lineY = (textSize.fontBoundingBoxAscent + textSize.fontBoundingBoxDescent + style.textMargin);
 
-				ctx.fillText(name, posX + style.textMargin / 2, posY + 1 + headerLine + lineY / 2 + lineY * line);
+				ctx.fillText(name, node.pos.x + style.textMargin / 2, node.pos.y + 1 + headerLine + lineY / 2 + lineY * line);
 
 				if (i < node.frames.length - 1) {
 					ctx.strokeStyle = style.nodeColor;
 					ctx.beginPath();
-					ctx.moveTo(posX + 0.5, posY + 0.5 + headerLine + lineY * (line + 1));
-					ctx.lineTo(posX + 0.5 + node.size.x, posY + 0.5 + headerLine + lineY * (line + 1));
+					ctx.moveTo(node.pos.x + 0.5, node.pos.y + 0.5 + headerLine + lineY * (line + 1));
+					ctx.lineTo(node.pos.x + 0.5 + node.size.x, node.pos.y + 0.5 + headerLine + lineY * (line + 1));
 					ctx.stroke();
 				}
 				++line;
 			}
 		}
 
-		let pos = { x: posX - node.bb.x / 2 + node.size.x / 2, y: posY - style.nodeSpacing };
+		let pos = { x: Math.floor(node.pos.x - node.bb.x / 2 + node.size.x / 2), y: node.pos.y - style.nodeSpacing };
+		if (node.children.length > 0) {
+			ctx.strokeStyle = style.nodeLinkColor;
+			ctx.beginPath();
+			ctx.moveTo(node.pos.x + Math.floor(node.size.x / 2) + 0.5, node.pos.y);
+			ctx.lineTo(node.pos.x + Math.floor(node.size.x / 2) + 0.5, node.pos.y - Math.floor(style.nodeSpacing / 2));
+			ctx.stroke();
+
+			let lineStartX = 0;
+			for (var i = 0; i < node.children.length; ++i) {
+				if (node.children[i].pos.x !== -1 && node.children[i].pos.y !== -1) {
+					lineStartX = node.children[i].pos.x + Math.floor(node.children[i].size.x / 2);
+					break;
+				}
+			}
+
+			let lineEndX = 0;
+			for (var i = node.children.length - 1; i >= 0; --i) {
+				if (node.children[i].pos.x !== -1 && node.children[i].pos.y !== -1) {
+					lineEndX = node.children[i].pos.x + Math.floor(node.children[i].size.x / 2) + 1;
+					break;
+				}
+			}
+
+			if (lineStartX !== 0 && lineEndX !== 0 && lineStartX !== lineEndX) {
+				ctx.strokeStyle = style.nodeLinkColor;
+				ctx.beginPath();
+				ctx.moveTo(lineStartX, node.pos.y - 0.5 - Math.floor(style.nodeSpacing / 2));
+				ctx.lineTo(lineEndX, node.pos.y - 0.5 - Math.floor(style.nodeSpacing / 2));
+				ctx.stroke();
+			}
+			else if (lineStartX === lineEndX) {
+				ctx.strokeStyle = style.nodeLinkColor;
+				ctx.beginPath();
+				ctx.moveTo(lineStartX, node.pos.y - Math.floor(style.nodeSpacing / 2) + 1);
+				ctx.lineTo(lineEndX, node.pos.y - Math.floor(style.nodeSpacing / 2) - 1);
+				ctx.stroke();
+			}
+		}
+
 		for (var i = 0; i < node.children.length; ++i) {
 			if (node.children[i].size.x !== 0 && node.children[i].size.y !== 0) {
 				if (node.size.x !== 0 && node.size.y !== 0) {
 					ctx.strokeStyle = style.nodeLinkColor;
 					ctx.beginPath();
-					ctx.moveTo(posX + 0.5 + node.size.x / 2, posY + 0.5);
-					ctx.lineTo(pos.x + 0.5 + node.children[i].bb.x / 2, pos.y + 0.5);
+					ctx.moveTo(node.children[i].pos.x + Math.floor(node.children[i].size.x / 2) + 0.5, node.children[i].pos.y + node.children[i].size.y);
+					ctx.lineTo(node.children[i].pos.x + Math.floor(node.children[i].size.x / 2) + 0.5, node.children[i].pos.y + node.children[i].size.y + Math.floor(style.nodeSpacing / 2));
 					ctx.stroke();
 				}
 
-				drawNode(node.children[i], pos.x + (node.children[i].bb.x - node.children[i].size.x) / 2, pos.y - node.children[i].size.y);
+				drawNode(node.children[i]);
 				pos.x += node.children[i].bb.x + style.nodeSpacing;
 			}
 		}
-	}
-
-	function drawGraph() {
-		if (!ctx || threadsData === undefined) {
-			return;
-		}
-
-		ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-		drawNode(threadsData, (threadsData.bb.x - threadsData.size.x) / 2 + style.canvasMargin, threadsData.bb.y - threadsData.size.y + style.canvasMargin);
 	}
 
 	document.addEventListener('DOMContentLoaded', () => {
 		vscode.postMessage({
 			command: 'update'
 		});
-		window.addEventListener('resize', resizeCanvas);
+		window.addEventListener('resize', redrawCanvas);
 
 		canvas.addEventListener('mousedown', startMove);
 		canvas.addEventListener('mousemove', move);
@@ -455,7 +530,7 @@
 		// 	}
 		// })
 
-		drawGraph();
+		redrawCanvas();
 	});
 
 	// Handle messages sent from the extension to the webview
@@ -465,21 +540,29 @@
 			case 'threads':
 				threadsData = message.threads;
 				if (threadsData !== undefined) {
+					overlayText.style.display = 'none';
+					darken = false;
 					calcNodeBB(threadsData);
-					resizeCanvas();
-				}
-				else {
-					ctx.clearRect(0, 0, canvas.width, canvas.height);
-					// TODO msg to tell no debug session is started
+					calcNodePos(threadsData);
+					redrawCanvas();
 				}
 				break;
+			case 'initialize':
 			case 'continue':
-				ctx.fillStyle = '#00000063';
-				ctx.fillRect(0, 0, canvas.width, canvas.height);
+				overlayText.style.display = 'initial';
+				overlayText.textContent = 'Program is currently running. Pause the execution to display threads.';
+				darken = true;
+				redrawCanvas();
 				break;
+			case 'disconnect':
+				overlayText.style.display = 'initial';
+				overlayText.textContent = 'No debug session is currently active.';
+				threadsData = undefined;
+				darken = true;
+				redrawCanvas();
 			case 'theme':
 				style = selectStyle();
-				drawGraph();
+				redrawCanvas();
 				break;
 		}
 	});
@@ -497,8 +580,9 @@
 
 		if (threadsData !== undefined) {
 			calcNodeBB(threadsData);
+			calcNodePos(threadsData);
 			console.log(threadsData);
-			resizeCanvas();
+			redrawCanvas();
 		}
 	});
 	if (needStateUpdate) {
