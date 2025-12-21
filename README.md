@@ -9,11 +9,6 @@ Button to toggle external code display or not.
 
 TODO info to open webview
 
-## Known Issues
-
-- Nodes with multiple threads cannot show the treads IDs and their name.
-
 ## Roadmap/TODO list
 
-- [ ] Show tooltip on nodes having multiple threads
 - [ ] Change active stack item in the webview (Currently impossible, see microsoft/vscode#281784)

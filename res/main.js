@@ -23,6 +23,7 @@
  * @property {{x: number, y: number}} bb - bounding box of the node, including its children
  * @property {{x: number, y: number}} size - size of the node
  * @property {{x: number, y: number}} pos - position of the node
+ * @property {number} headerHeight - height of the header line
  */
 
 /**
@@ -31,12 +32,24 @@
  * @property {boolean} external - Show external code or not
 */
 
+/**
+ * @typedef TooltipState
+ * @type {object}
+ * @property {ThreadNode | undefined} node - Current node the tooltip is displaying information about
+ * @property {HTMLElement} elem - Tooltip HTML element
+ */
+
 (function () {
 	const vscode = acquireVsCodeApi();
 	/**
 	 * @type {ThreadNode|undefined}
 	 */
-	let threadsData = undefined;
+	let rootNode = undefined;
+
+	/**
+	 * @type {ThreadNode[]}
+	 */
+	let nodes = [];
 
 	/**
 	 * @type {ViewState}
@@ -44,7 +57,7 @@
 	let state = {
 		external: true
 	};
-	let darken = true;
+	let disableInteractions = true;
 
 	let needStateUpdate = true;
 	let vscodeState = /** @type {ViewState | undefined} */ (vscode.getState());
@@ -71,6 +84,23 @@
 		return;
 	}
 
+	/**
+	 * @type {TooltipState}
+	 */
+	let tooltip = {
+		node: undefined,
+		elem: document.createElement('div')
+	};
+	tooltip.elem.style.display = 'none';
+	tooltip.elem.style.position = 'fixed';
+	tooltip.elem.style.backgroundColor = getComputedStyle(canvas).getPropertyValue('--vscode-editorWidget-background');
+	tooltip.elem.style.boxShadow = '0 0 5px black';
+	tooltip.elem.style.borderRadius = '3px';
+	tooltip.elem.style.padding = '.5em';
+	tooltip.elem.style.margin = '.8em';
+	tooltip.elem.style.pointerEvents = 'none';
+	document.body.appendChild(tooltip.elem);
+
 	function selectStyle() {
 		if (document.body.className === 'vscode-dark') {
 			const styleDark = {
@@ -87,6 +117,8 @@
 				headerColor: 'white',
 				nodeLinkColor: 'lightgrey'
 			};
+
+			tooltip.elem.style.backgroundColor = getComputedStyle(canvas).getPropertyValue('--vscode-editorWidget-background');
 			return styleDark;
 		}
 		else if (document.body.className === 'vscode-light') {
@@ -104,6 +136,8 @@
 				headerColor: 'black',
 				nodeLinkColor: 'darkgrey'
 			};
+
+			tooltip.elem.style.backgroundColor = getComputedStyle(canvas).getPropertyValue('--vscode-editorWidget-background');
 			return styleLight;
 		}
 		else {
@@ -122,42 +156,12 @@
 				headerColor: 'white',
 				nodeLinkColor: 'lightgrey'
 			};
+
+			tooltip.elem.style.backgroundColor = getComputedStyle(canvas).getPropertyValue('--vscode-editorWidget-background');
 			return styleDark;
 		}
 	}
 	let style = selectStyle();
-
-	// const menuNode = document.createElement('div');
-	// menuNode.id = 'menu';
-	// menuNode.style.display = 'none';
-	// menuNode.style.position = 'fixed';
-	// menuNode.style.width = '60px';
-	// menuNode.style.backgroundColor = 'white';
-	// menuNode.style.boxShadow = '0 0 5px grey';
-	// menuNode.style.borderRadius = '3px';
-
-	// // Create buttons for the menu
-	// const pulseButton = document.createElement('button');
-	// pulseButton.textContent = 'Pulse';
-	// pulseButton.style.width = '100%';
-	// pulseButton.style.backgroundColor = 'white';
-	// pulseButton.style.color = 'black';
-	// pulseButton.style.border = 'none';
-	// pulseButton.style.margin = '0';
-	// pulseButton.style.padding = '10px';
-
-	// const deleteButton = document.createElement('button');
-	// deleteButton.textContent = 'Delete';
-	// deleteButton.style.width = '100%';
-	// deleteButton.style.backgroundColor = 'white';
-	// deleteButton.style.color = 'black';
-	// deleteButton.style.border = 'none';
-	// deleteButton.style.margin = '0';
-	// deleteButton.style.padding = '10px';
-
-	// menuNode.appendChild(pulseButton);
-	// menuNode.appendChild(deleteButton);
-	// document.body.appendChild(menuNode);
 
 	/**
 	 * @param {ThreadNode} node
@@ -227,6 +231,7 @@
 		size.x = Math.floor(size.x);
 		size.y = Math.floor(size.y);
 		node.size = size;
+		node.headerHeight = headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + style.textMargin;
 	}
 
 	/**
@@ -268,7 +273,7 @@
 	 * @param {ThreadNode} node
 	 */
 	function calcNodePos(node) {
-		if (node === threadsData) {
+		if (node === rootNode) {
 			node.pos = { x: Math.floor((node.bb.x - node.size.x) / 2) + style.canvasMargin, y: node.bb.y - node.size.y + style.canvasMargin };
 		}
 
@@ -287,6 +292,16 @@
 		}
 	}
 
+	/**
+	 * @param {ThreadNode} node
+	 */
+	function fillNodes(node) {
+		nodes.push(node);
+		for (var i = 0; i < node.children.length; ++i) {
+			fillNodes(node.children[i]);
+		}
+	}
+
 	let moving = false;
 	let start = { x: 0, y: 0 };
 	let scroll = { x: 0, y: 0 };
@@ -297,6 +312,9 @@
 	 */
 	function startMove(e) {
 		if (slider === null || slider === undefined) {
+			return;
+		}
+		if (disableInteractions) {
 			return;
 		}
 		moving = true;
@@ -320,8 +338,57 @@
 	 * @param {MouseEvent} e
 	 */
 	function move(e) {
+		if (disableInteractions) {
+			return;
+		}
 		e.preventDefault();
 		if (!moving) {
+			if (disableInteractions) {
+				return;
+			}
+			let found = false;
+			for (var i = 0; i < nodes.length; ++i) {
+				if ((e.offsetX >= nodes[i].pos.x) &&
+					(e.offsetX < nodes[i].pos.x + nodes[i].size.x) &&
+					(e.offsetY >= nodes[i].pos.y) &&
+					(e.offsetY < nodes[i].pos.y + nodes[i].headerHeight)) {
+					canvas.style.cursor = 'default';
+					found = true;
+
+					if (tooltip.elem.style.display === 'none' && nodes[i].threads.length > 1) {
+						tooltip.elem.style.display = 'initial';
+						tooltip.elem.style.top = e.clientY + 'px';
+						tooltip.elem.style.left = e.clientX + 'px';
+
+						tooltip.node = nodes[i];
+
+						tooltip.elem.replaceChildren();
+
+						for (var j = 0; j < tooltip.node.threads.length; ++j) {
+							let line = document.createElement('div');
+							line.textContent = tooltip.node.threads[j].name + ' (' + tooltip.node.threads[j].id + ')';
+							line.style.textWrapMode = 'nowrap';
+
+							tooltip.elem.appendChild(line);
+						}
+
+					}
+
+					if (tooltip.node === nodes[i]) {
+						tooltip.elem.style.top = e.clientY + 'px';
+						tooltip.elem.style.left = e.clientX + 'px';
+					}
+
+					break;
+				}
+			}
+
+			if (!found) {
+				canvas.style.cursor = 'grab';
+				tooltip.node = undefined;
+				tooltip.elem.style.display = 'none';
+			}
+
 			return;
 		}
 		if (slider === null || slider === undefined) {
@@ -354,11 +421,11 @@
 		}
 
 		// TODO Remove Y scrollbar if not needed
-		if (threadsData !== undefined && container !== null) {
-			canvas.width = (threadsData.bb.x + 50 > container.clientWidth ? threadsData.bb.x + 50 : container.clientWidth) * window.devicePixelRatio;
-			canvas.height = (threadsData.bb.y > container.clientHeight - 3 ? threadsData.bb.y : container.clientHeight - 3) * window.devicePixelRatio;
+		if (rootNode !== undefined && container !== null) {
+			canvas.width = (rootNode.bb.x + 50 > container.clientWidth ? rootNode.bb.x + 50 : container.clientWidth) * window.devicePixelRatio;
+			canvas.height = (rootNode.bb.y > container.clientHeight - 3 ? rootNode.bb.y : container.clientHeight - 3) * window.devicePixelRatio;
 		}
-		else if (threadsData === undefined && container !== null) {
+		else if (rootNode === undefined && container !== null) {
 			canvas.width = container.clientWidth * window.devicePixelRatio;
 			canvas.height = container.clientHeight - 3 * window.devicePixelRatio;
 		}
@@ -366,12 +433,12 @@
 
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-		if (threadsData !== undefined) {
-			drawNode(threadsData);
+		if (rootNode !== undefined) {
+			drawNode(rootNode);
 		}
 
-		console.log(darken);
-		if (darken) {
+		console.log(disableInteractions);
+		if (disableInteractions) {
 			ctx.fillStyle = '#00000063';
 			ctx.fillRect(0, 0, canvas.width, canvas.height);
 		}
@@ -516,20 +583,6 @@
 		canvas.addEventListener('mouseup', stopMove);
 		canvas.addEventListener('mouseout', stopMove);
 
-		// canvas.addEventListener('contextmenu', (e) => {
-		// 	// prevent default behavior
-		// 	e.preventDefault();
-		// 	menuNode.style.display = 'initial';
-		// 	menuNode.style.top = e.clientY + 'px';
-		// 	menuNode.style.left = e.clientX + 'px';
-		// });
-
-		// canvas.addEventListener('click', (e) => {
-		// 	if (menuNode.style.display == 'initial') {
-		// 		menuNode.style.display = 'none';
-		// 	}
-		// })
-
 		redrawCanvas();
 	});
 
@@ -538,12 +591,13 @@
 		const message = event.data; // The json data that the extension sent
 		switch (message.command) {
 			case 'threads':
-				threadsData = message.threads;
-				if (threadsData !== undefined) {
+				rootNode = message.threads;
+				if (rootNode !== undefined) {
 					overlayText.style.display = 'none';
-					darken = false;
-					calcNodeBB(threadsData);
-					calcNodePos(threadsData);
+					disableInteractions = false;
+					calcNodeBB(rootNode);
+					calcNodePos(rootNode);
+					fillNodes(rootNode);
 					redrawCanvas();
 				}
 				break;
@@ -551,14 +605,17 @@
 			case 'continue':
 				overlayText.style.display = 'initial';
 				overlayText.textContent = 'Program is currently running. Pause the execution to display threads.';
-				darken = true;
+				disableInteractions = true;
+				tooltip.elem.style.display = 'none';
 				redrawCanvas();
 				break;
 			case 'disconnect':
 				overlayText.style.display = 'initial';
 				overlayText.textContent = 'No debug session is currently active.';
-				threadsData = undefined;
-				darken = true;
+				rootNode = undefined;
+				nodes.splice(0);
+				disableInteractions = true;
+				tooltip.elem.style.display = 'none';
 				redrawCanvas();
 			case 'theme':
 				style = selectStyle();
@@ -578,10 +635,10 @@
 			data: state
 		});
 
-		if (threadsData !== undefined) {
-			calcNodeBB(threadsData);
-			calcNodePos(threadsData);
-			console.log(threadsData);
+		if (rootNode !== undefined) {
+			calcNodeBB(rootNode);
+			calcNodePos(rootNode);
+			console.log(rootNode);
 			redrawCanvas();
 		}
 	});
