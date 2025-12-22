@@ -6,7 +6,7 @@
   "repository": {
 	"url": "https://github.com/BluTree/vscode-thread-graph"
   },
-  "version": "0.1.1",
+  "version": "0.2.0",
   "engines": {
     "vscode": "^1.106.0"
   },
@@ -27,10 +27,6 @@
         "command": "thread-graph.callstack-show",
         "title": "Thread Graph: Show",
 		"icon": "$(symbol-class)"
-      },
-      {
-        "command": "thread-graph.show",
-        "title": "Thread Graph: Show"
       }
     ],
 	"menus": {

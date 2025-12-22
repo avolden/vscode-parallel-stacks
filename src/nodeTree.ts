@@ -104,15 +104,48 @@ export async function createThreadTree(debugSession: vscode.DebugSession) {
 			const framesResponse = await debugSession.customRequest('stackTrace', {
 				threadId: th.id,
 				startFrame: 0,
-				levels: 200
+				levels: 200,
+				format: {
+					parameters: false,
+					parametersTypes: false,
+					parametersNames: false,
+					parametersValues: false,
+					line: false,
+					module: true,
+					includeAll: true
+				}
 			});
 
 			for (const frame of framesResponse.stackFrames || []) {
-				child.frames.push({
+				if (frame.presentationHint && frame.presentationHint === 'label') {
+					continue;
+				}
+
+				let elem = {
 					name: frame.name || '',
 					type: frame.source === undefined ? 'external' : 'normal'
-				});
+				};
+
+				if (frame.presentationHint && frame.presentationHint === 'subtle') {
+					elem.type = 'external';
+				}
+
+				if (frame.source && frame.source.presentationHint && frame.source.presentationHint === 'deemphasize') {
+					elem.type = 'external';
+				}
+
+				// if (frame.source && frame.source.sourceReference) {
+				// 	let result = (await debugSession.customRequest('source', {
+				// 		source: frame.source,
+				// 		sourceReference: frame.source.sourceReference
+				// 	}));
+				// 	console.log(result);
+				// }
+
+				child.frames.push(elem);
+
 			}
+
 			child.frames.reverse();
 
 			children.push(child);

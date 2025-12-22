@@ -127,7 +127,7 @@
 				font: getComputedStyle(canvas).getPropertyValue('--vscode-font-size') + ' ' + getComputedStyle(canvas).getPropertyValue('--vscode-font-family'),
 				canvasMargin: 15,
 				textMargin: 10,
-				nodeSpacing: 50,
+				nodeSpacing: 51,
 
 				textColor: 'black',
 				externalColor: 'darkgrey',
@@ -147,7 +147,7 @@
 				font: getComputedStyle(canvas).getPropertyValue('--vscode-font-size') + ' ' + getComputedStyle(canvas).getPropertyValue('--vscode-font-family'),
 				canvasMargin: 15,
 				textMargin: 10,
-				nodeSpacing: 50,
+				nodeSpacing: 51,
 
 				textColor: 'white',
 				externalColor: 'darkgrey',
@@ -228,8 +228,8 @@
 		if (size.x < headerSize.width + style.textMargin) {
 			size.x = headerSize.width + style.textMargin;
 		}
-		size.x = Math.floor(size.x);
-		size.y = Math.floor(size.y);
+		size.x = Math.round(size.x);
+		size.y = Math.round(size.y);
 		node.size = size;
 		node.headerHeight = headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + style.textMargin;
 	}
@@ -247,7 +247,7 @@
 		for (var i = 0; i < node.children.length; ++i) {
 			calcNodeBB(node.children[i]);
 			if (childrenBB.x !== 0 && node.children[i].bb.x !== 0) {
-				childrenBB.x += 50;
+				childrenBB.x += style.nodeSpacing;
 			}
 
 			childrenBB.x += node.children[i].bb.x;
@@ -259,9 +259,8 @@
 
 		calcNodeSize(node);
 		if (childrenBB.x !== 0 && childrenBB.y !== 0) {
-			node.bb.y = 50;
 			node.bb.x = childrenBB.x > node.size.x ? childrenBB.x : node.size.x;
-			node.bb.y += childrenBB.y + node.size.y;
+			node.bb.y = childrenBB.y + node.size.y + style.nodeSpacing;
 		}
 		else {
 			node.bb.x = node.size.x;
@@ -274,18 +273,18 @@
 	 */
 	function calcNodePos(node) {
 		if (node === rootNode) {
-			node.pos = { x: Math.floor((node.bb.x - node.size.x) / 2) + style.canvasMargin, y: node.bb.y - node.size.y + style.canvasMargin };
+			node.pos = { x: Math.round((node.bb.x - node.size.x) / 2) + style.canvasMargin, y: node.bb.y - node.size.y + style.canvasMargin };
 		}
 
 		if (node.size.x === -1 || node.size.y === -1) {
 			node.pos = { x: -1, y: -1 };
 		}
 
-		let childPos = { x: Math.floor(node.pos.x - node.bb.x / 2 + node.size.x / 2), y: node.pos.y - style.nodeSpacing };
+		let childPos = { x: Math.round(node.pos.x - node.bb.x / 2 + node.size.x / 2), y: node.pos.y - style.nodeSpacing };
 		for (var i = 0; i < node.children.length; ++i) {
 			node.children[i].pos = { x: -1, y: -1 };
 			if (node.children[i].size.x !== 0 && node.children[i].size.y !== 0) {
-				node.children[i].pos = { x: childPos.x + Math.floor((node.children[i].bb.x - node.children[i].size.x) / 2), y: childPos.y - node.children[i].size.y };
+				node.children[i].pos = { x: childPos.x + Math.round((node.children[i].bb.x - node.children[i].size.x) / 2), y: childPos.y - node.children[i].size.y };
 				calcNodePos(node.children[i]);
 				childPos.x += node.children[i].bb.x + style.nodeSpacing;
 			}
@@ -516,18 +515,18 @@
 			}
 		}
 
-		let pos = { x: Math.floor(node.pos.x - node.bb.x / 2 + node.size.x / 2), y: node.pos.y - style.nodeSpacing };
+		let pos = { x: Math.round(node.pos.x - node.bb.x / 2 + node.size.x / 2), y: node.pos.y - style.nodeSpacing };
 		if (node.children.length > 0) {
 			ctx.strokeStyle = style.nodeLinkColor;
 			ctx.beginPath();
-			ctx.moveTo(node.pos.x + Math.floor(node.size.x / 2) + 0.5, node.pos.y);
-			ctx.lineTo(node.pos.x + Math.floor(node.size.x / 2) + 0.5, node.pos.y - Math.floor(style.nodeSpacing / 2));
+			ctx.moveTo(node.pos.x + Math.round(node.size.x / 2) + 0.5, node.pos.y);
+			ctx.lineTo(node.pos.x + Math.round(node.size.x / 2) + 0.5, node.pos.y - Math.round((style.nodeSpacing - 1) / 2));
 			ctx.stroke();
 
 			let lineStartX = 0;
 			for (var i = 0; i < node.children.length; ++i) {
 				if (node.children[i].pos.x !== -1 && node.children[i].pos.y !== -1) {
-					lineStartX = node.children[i].pos.x + Math.floor(node.children[i].size.x / 2);
+					lineStartX = node.children[i].pos.x + Math.round(node.children[i].size.x / 2);
 					break;
 				}
 			}
@@ -535,7 +534,7 @@
 			let lineEndX = 0;
 			for (var i = node.children.length - 1; i >= 0; --i) {
 				if (node.children[i].pos.x !== -1 && node.children[i].pos.y !== -1) {
-					lineEndX = node.children[i].pos.x + Math.floor(node.children[i].size.x / 2) + 1;
+					lineEndX = node.children[i].pos.x + Math.round(node.children[i].size.x / 2);
 					break;
 				}
 			}
@@ -543,15 +542,15 @@
 			if (lineStartX !== 0 && lineEndX !== 0 && lineStartX !== lineEndX) {
 				ctx.strokeStyle = style.nodeLinkColor;
 				ctx.beginPath();
-				ctx.moveTo(lineStartX, node.pos.y - 0.5 - Math.floor(style.nodeSpacing / 2));
-				ctx.lineTo(lineEndX, node.pos.y - 0.5 - Math.floor(style.nodeSpacing / 2));
+				ctx.moveTo(lineStartX, node.pos.y - 0.5 - Math.round((style.nodeSpacing - 1) / 2));
+				ctx.lineTo(lineEndX + 1, node.pos.y - 0.5 - Math.round((style.nodeSpacing - 1) / 2));
 				ctx.stroke();
 			}
 			else if (lineStartX === lineEndX) {
 				ctx.strokeStyle = style.nodeLinkColor;
 				ctx.beginPath();
-				ctx.moveTo(lineStartX, node.pos.y - Math.floor(style.nodeSpacing / 2) + 1);
-				ctx.lineTo(lineEndX, node.pos.y - Math.floor(style.nodeSpacing / 2) - 1);
+				ctx.moveTo(lineStartX + 0.5, node.pos.y - Math.round((style.nodeSpacing - 1) / 2));
+				ctx.lineTo(lineEndX + 0.5, node.pos.y - Math.round((style.nodeSpacing - 1) / 2) - 1);
 				ctx.stroke();
 			}
 		}
@@ -561,8 +560,8 @@
 				if (node.size.x !== 0 && node.size.y !== 0) {
 					ctx.strokeStyle = style.nodeLinkColor;
 					ctx.beginPath();
-					ctx.moveTo(node.children[i].pos.x + Math.floor(node.children[i].size.x / 2) + 0.5, node.children[i].pos.y + node.children[i].size.y);
-					ctx.lineTo(node.children[i].pos.x + Math.floor(node.children[i].size.x / 2) + 0.5, node.children[i].pos.y + node.children[i].size.y + Math.floor(style.nodeSpacing / 2));
+					ctx.moveTo(node.children[i].pos.x + Math.round(node.children[i].size.x / 2) + 0.5, node.children[i].pos.y + node.children[i].size.y);
+					ctx.lineTo(node.children[i].pos.x + Math.round(node.children[i].size.x / 2) + 0.5, node.children[i].pos.y + node.children[i].size.y + Math.round((style.nodeSpacing - 1) / 2));
 					ctx.stroke();
 				}
 
@@ -634,6 +633,7 @@
 			command: 'updateState',
 			data: state
 		});
+		vscode.setState(state);
 
 		if (rootNode !== undefined) {
 			calcNodeBB(rootNode);
