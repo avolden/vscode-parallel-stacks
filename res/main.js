@@ -295,6 +295,10 @@
 	 * @param {ThreadNode} node
 	 */
 	function fillNodes(node) {
+		if (node.bb.x === 0 && node.bb.y === 0) {
+			return;
+		}
+
 		nodes.push(node);
 		for (var i = 0; i < node.children.length; ++i) {
 			fillNodes(node.children[i]);
@@ -389,6 +393,10 @@
 			}
 
 			return;
+		}
+		else if (tooltip.node !== undefined) {
+			tooltip.node = undefined;
+			tooltip.elem.style.display = 'none';
 		}
 		if (slider === null || slider === undefined) {
 			return;
@@ -582,7 +590,7 @@
 		canvas.addEventListener('mouseup', stopMove);
 		canvas.addEventListener('mouseout', stopMove);
 
-		redrawCanvas();
+		// redrawCanvas();
 	});
 
 	// Handle messages sent from the extension to the webview
@@ -591,6 +599,7 @@
 		switch (message.command) {
 			case 'threads':
 				rootNode = message.threads;
+				nodes.splice(0);
 				if (rootNode !== undefined) {
 					overlayText.style.display = 'none';
 					disableInteractions = false;
@@ -636,8 +645,10 @@
 		vscode.setState(state);
 
 		if (rootNode !== undefined) {
+			nodes.splice(0);
 			calcNodeBB(rootNode);
 			calcNodePos(rootNode);
+			fillNodes(rootNode);
 			console.log(rootNode);
 			redrawCanvas();
 		}

@@ -134,15 +134,10 @@ export async function createThreadTree(debugSession: vscode.DebugSession) {
 					elem.type = 'external';
 				}
 
-				// if (frame.source && frame.source.sourceReference) {
-				// 	let result = (await debugSession.customRequest('source', {
-				// 		source: frame.source,
-				// 		sourceReference: frame.source.sourceReference
-				// 	}));
-				// 	console.log(result);
-				// }
-
-				child.frames.push(elem);
+				// CodeLLDB specific
+				if (frame.source && frame.source.origin && frame.source.origin === 'disassembly') {
+					elem.type = 'external';
+				}
 
 			}
 

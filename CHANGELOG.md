@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+
+- Fix hover tooltip when external code is hidden
+
 ## 0.2
 
 - Add tooltip when hovering node containing multiple threads
