@@ -11,6 +11,7 @@
  * @type {object}
  * @property {string} name - Frame name
  * @property {string} type - type of the frame
+ * @property {number[]} ids - frame ids of the frame, as the debug adapter send them
  */
 
 /**
@@ -33,10 +34,23 @@
 */
 
 /**
+ * @typedef HoverState
+ * @property {ThreadNode | undefined} node - Current node the tooltip is displaying information about
+ * @property {number} func - line number being hovered
+*/
+
+/**
  * @typedef TooltipState
  * @type {object}
  * @property {ThreadNode | undefined} node - Current node the tooltip is displaying information about
  * @property {HTMLElement} elem - Tooltip HTML element
+ */
+
+/**
+ * @typedef ActiveItem
+ * @type {object}
+ * @property {ThreadNode | undefined} node - node of the active item
+ * @property {number} frameID - frame index of the active item
  */
 
 (function () {
@@ -50,6 +64,22 @@
 	 * @type {ThreadNode[]}
 	 */
 	let nodes = [];
+
+	/**
+	 * @type {ActiveItem}
+	 */
+	let activeItem = {
+		node: undefined,
+		frameID: -1
+	};
+
+	/**
+	 * @type {HoverState}
+	 */
+	let hover = {
+		node: undefined,
+		func: -1
+	};
 
 	/**
 	 * @type {ViewState}
@@ -110,6 +140,8 @@
 				textMargin: 10,
 				nodeSpacing: 51,
 
+				activeItemBorderColor: getComputedStyle(canvas).getPropertyValue('--vscode-editorWidget-border'),
+				hoverFillColor: '#ffffff44',
 				textColor: 'white',
 				externalColor: 'darkgrey',
 
@@ -129,8 +161,10 @@
 				textMargin: 10,
 				nodeSpacing: 51,
 
+				activeItemBorderColor: getComputedStyle(canvas).getPropertyValue('--vscode-editorWidget-border'),
+				hoverFillColor: 'darkgrey',
 				textColor: 'black',
-				externalColor: 'darkgrey',
+				externalColor: 'lightgrey',
 
 				nodeColor: 'grey',
 				headerColor: 'black',
@@ -149,6 +183,8 @@
 				textMargin: 10,
 				nodeSpacing: 51,
 
+				activeItemBorderColor: getComputedStyle(canvas).getPropertyValue('--vscode-editorWidget-border'),
+				hoverFillColor: 'lightgrey',
 				textColor: 'white',
 				externalColor: 'darkgrey',
 
@@ -305,11 +341,101 @@
 		}
 	}
 
+	/**
+	 * @param {ThreadNode} node
+	 * @param {{x: number, y: number}} mousePos
+	 * @returns {number} function
+	 */
+	function getFunctionIdx(node, mousePos) {
+		if (ctx === null) {
+			return -1;
+		}
+		mousePos.x -= node.pos.x;
+		mousePos.y -= node.pos.y + node.headerHeight;
+
+		let currentY = 0;
+		for (var i = 0; i < node.frames.length; ++i) {
+			if (state.external || (!state.external && node.frames[i].type === 'normal')) {
+				let frameSize = ctx.measureText(node.frames[i].name);
+				let lineHeight = frameSize.fontBoundingBoxAscent + frameSize.fontBoundingBoxDescent + style.textMargin;
+				if (mousePos.y >= currentY && mousePos.y <= currentY + lineHeight) {
+					return i;
+				}
+				currentY += lineHeight;
+			}
+		}
+
+		return -1;
+	}
+
+	/**
+	 * @param {ThreadNode} node
+	 * @param {number} threadID
+	 * @param {number} frameID
+	 */
+	function computeActiveItemRecurse(node, threadID, frameID) {
+		if (frameID < 0) {
+			if (node.children.length === 0) {
+				activeItem.node = node;
+				activeItem.frameID = 0;
+			}
+			return true;
+		}
+		else {
+			for (var i = 0; i < node.frames.length; ++i) {
+				let frameFound = node.frames[i].ids.find((id) => { return id === frameID; });
+
+				if (frameFound) {
+					activeItem.node = node;
+					activeItem.frameID = node.frames.length - 1 - i;
+					return true;
+				}
+			}
+		}
+
+		for (var i = 0; i < node.children.length; ++i) {
+			let found = node.children[i].threads.find((val) => { if (val.id === threadID) { return true; } }) !== undefined;
+
+			if (found && computeActiveItemRecurse(node.children[i], threadID, frameID)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * @param {number} threadID
+	 * @param {number} frameID
+	 */
+	function computeActiveItem(threadID, frameID) {
+		if (!rootNode) {
+			return;
+		}
+
+		if (!computeActiveItemRecurse(rootNode, threadID, frameID)) {
+			activeItem.node = undefined;
+			activeItem.frameID = -1;
+		}
+	}
+
 	let moving = false;
 	let start = { x: 0, y: 0 };
 	let scroll = { x: 0, y: 0 };
 	const slider = document.getElementById('canvas-container');
 
+	/**
+	 * @param {MouseEvent} e
+	 */
+	function click(e) {
+		if (hover.node) {
+			vscode.postMessage({
+				command: 'open',
+				node: hover.node,
+				func: hover.func
+			});
+		}
+	}
 	/**
 	 * @param {MouseEvent} e
 	 */
@@ -320,6 +446,16 @@
 		if (disableInteractions) {
 			return;
 		}
+
+		for (var i = 0; i < nodes.length; ++i) {
+			if ((e.offsetX >= nodes[i].pos.x) &&
+				(e.offsetX < nodes[i].pos.x + nodes[i].size.x) &&
+				(e.offsetY >= nodes[i].pos.y) &&
+				(e.offsetY < nodes[i].pos.y + nodes[i].size.y)) {
+				return;
+			}
+		}
+
 		moving = true;
 		start.x = e.pageX;
 		start.y = e.pageY;
@@ -333,8 +469,10 @@
 	 * @param {MouseEvent} e
 	 */
 	function stopMove(e) {
-		moving = false;
-		canvas.style.cursor = 'grab';
+		if (moving) {
+			moving = false;
+			canvas.style.cursor = 'grab';
+		}
 	}
 
 	/**
@@ -349,14 +487,15 @@
 			if (disableInteractions) {
 				return;
 			}
-			let found = false;
+			let foundHeader = false;
+			let foundNode = false;
 			for (var i = 0; i < nodes.length; ++i) {
 				if ((e.offsetX >= nodes[i].pos.x) &&
 					(e.offsetX < nodes[i].pos.x + nodes[i].size.x) &&
 					(e.offsetY >= nodes[i].pos.y) &&
 					(e.offsetY < nodes[i].pos.y + nodes[i].headerHeight)) {
 					canvas.style.cursor = 'default';
-					found = true;
+					foundHeader = true;
 
 					if (tooltip.elem.style.display === 'none' && nodes[i].threads.length > 1) {
 						tooltip.elem.style.display = 'initial';
@@ -384,12 +523,38 @@
 
 					break;
 				}
+				else if ((e.offsetX >= nodes[i].pos.x) &&
+					(e.offsetX < nodes[i].pos.x + nodes[i].size.x) &&
+					(e.offsetY >= nodes[i].pos.y + nodes[i].headerHeight) &&
+					(e.offsetY < nodes[i].pos.y + nodes[i].size.y)) {
+					canvas.style.cursor = 'pointer';
+					foundNode = true;
+
+					let funcIdx = getFunctionIdx(nodes[i], { x: e.offsetX, y: e.offsetY });
+					if (nodes[i] !== hover.node || funcIdx !== hover.func) {
+
+						hover.node = nodes[i];
+						hover.func = funcIdx;
+
+						redrawCanvas();
+					}
+				}
 			}
 
-			if (!found) {
-				canvas.style.cursor = 'grab';
+			if (!foundHeader) {
 				tooltip.node = undefined;
 				tooltip.elem.style.display = 'none';
+			}
+			if (!foundNode) {
+				let needRedraw = hover.node !== undefined;
+				hover.node = undefined;
+				hover.func = -1;
+				if (needRedraw) {
+					redrawCanvas();
+				}
+			}
+			if (!foundHeader && !foundNode) {
+				canvas.style.cursor = 'grab';
 			}
 
 			return;
@@ -444,7 +609,6 @@
 			drawNode(rootNode);
 		}
 
-		console.log(disableInteractions);
 		if (disableInteractions) {
 			ctx.fillStyle = '#00000063';
 			ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -486,11 +650,22 @@
 			ctx.strokeRect(node.pos.x + 0.5, node.pos.y + 0.5, node.size.x, (headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + style.textMargin) * (line + 1));
 			let headerLine = (headerSize.fontBoundingBoxAscent + headerSize.fontBoundingBoxDescent + style.textMargin);
 
+			let hoverLine = -1;
+			if (hover.node === node) {
+				hoverLine = hover.func;
+			}
+
+			let activeLine = -1;
+			if (activeItem.node === node) {
+				activeLine = activeItem.frameID;
+			}
+
 			ctx.font = style.codeFont;
 			for (var i = 0; i < node.frames.length; ++i) {
 				let name = node.frames[node.frames.length - 1 - i].name;
+				let textStyle = '';
 				if (node.frames[node.frames.length - 1 - i].type === 'external') {
-					ctx.fillStyle = style.externalColor;
+					textStyle = style.externalColor;
 					if (!state.external) {
 						for (var j = i + 1; j < node.frames.length; ++j) {
 							if (node.frames[node.frames.length - 1 - j].type === 'external') {
@@ -504,12 +679,24 @@
 					}
 				}
 				else {
-					ctx.fillStyle = style.textColor;
+					textStyle = style.textColor;
 				}
 
 				let textSize = ctx.measureText(name);
 				const lineY = (textSize.fontBoundingBoxAscent + textSize.fontBoundingBoxDescent + style.textMargin);
 
+				if (state.external || (!state.external && name !== externalText)) {
+					if (i === hoverLine) {
+						ctx.fillStyle = style.hoverFillColor;
+						ctx.fillRect(node.pos.x + 1, node.pos.y + headerLine + lineY * line + 1, node.size.x - 1, lineY - 1);
+					}
+
+					if (i === activeLine) {
+						ctx.fillStyle = style.activeItemBorderColor;
+						ctx.fillRect(node.pos.x + 1, node.pos.y + headerLine + lineY * line + 1, 3, lineY - 1);
+					}
+				}
+				ctx.fillStyle = textStyle;
 				ctx.fillText(name, node.pos.x + style.textMargin / 2, node.pos.y + 1 + headerLine + lineY / 2 + lineY * line);
 
 				if (i < node.frames.length - 1) {
@@ -585,6 +772,7 @@
 		});
 		window.addEventListener('resize', redrawCanvas);
 
+		canvas.addEventListener('click', click);
 		canvas.addEventListener('mousedown', startMove);
 		canvas.addEventListener('mousemove', move);
 		canvas.addEventListener('mouseup', stopMove);
@@ -608,6 +796,10 @@
 					fillNodes(rootNode);
 					redrawCanvas();
 				}
+				break;
+			case 'activeItem':
+				computeActiveItem(message.threadID, message.frameID);
+				redrawCanvas();
 				break;
 			case 'initialize':
 			case 'continue':
@@ -649,7 +841,6 @@
 			calcNodeBB(rootNode);
 			calcNodePos(rootNode);
 			fillNodes(rootNode);
-			console.log(rootNode);
 			redrawCanvas();
 		}
 	});

@@ -8,6 +8,9 @@ export class Thread {
 export class Frame {
 	name: string = '';
 	type: string = '';
+	source: string = '';
+	line: number = 0;
+	ids: number[] = [];
 }
 
 export class Node {
@@ -16,6 +19,8 @@ export class Node {
 
 	children: Node[] = [];
 }
+
+let nodeRoot: Node | undefined = undefined;
 
 function parseNodes(parent: Node, children: Node[]) {
 	let stackLevel = 0;
@@ -41,6 +46,9 @@ function parseNodes(parent: Node, children: Node[]) {
 		if (relatives.length > 1) {
 			for (var i = 0; i < stackLevel; ++i) {
 				parent.frames.push(children[0].frames[i]);
+				for (var j = 1; j < children.length; ++j) {
+					parent.frames[i].ids.push(children[j].frames[i].ids[0]);
+				}
 			}
 
 			for (const child of children) {
@@ -79,13 +87,16 @@ function parseNodes(parent: Node, children: Node[]) {
 	if (children.length > 0) {
 		for (var i = 0; i < stackLevel; ++i) {
 			parent.frames.push(children[0].frames[i]);
+			for (var j = 0; j < children.length; ++j) {
+				parent.frames[i].ids.push(children[j].frames[i].ids[0]);
+			}
 		}
 	}
 }
 
 
 export async function createThreadTree(debugSession: vscode.DebugSession) {
-	let root = new Node();
+	nodeRoot = new Node();
 	let children: Node[] = [];
 
 	try {
@@ -94,7 +105,7 @@ export async function createThreadTree(debugSession: vscode.DebugSession) {
 			thread.id = th.id;
 			thread.name = th.name;
 
-			root.threads.push(thread);
+			nodeRoot.threads.push(thread);
 
 			let child: Node = new Node();
 			child.threads.push(thread);
@@ -123,7 +134,10 @@ export async function createThreadTree(debugSession: vscode.DebugSession) {
 
 				let elem = {
 					name: frame.name || '',
-					type: frame.source === undefined ? 'external' : 'normal'
+					type: frame.source === undefined ? 'external' : 'normal',
+					source: frame.source !== undefined ? frame.source.path : '',
+					line: frame.line || 0,
+					ids: [frame.id]
 				};
 
 				if (frame.presentationHint && frame.presentationHint === 'subtle') {
@@ -139,6 +153,7 @@ export async function createThreadTree(debugSession: vscode.DebugSession) {
 					elem.type = 'external';
 				}
 
+				child.frames.push(elem);
 			}
 
 			child.frames.reverse();
@@ -150,9 +165,33 @@ export async function createThreadTree(debugSession: vscode.DebugSession) {
 		if (e.name === 'CodeExpectedError') {
 			return undefined;
 		}
+		throw e;
 	}
 
-	parseNodes(root, children);
+	parseNodes(nodeRoot, children);
 
-	return root;
+	return nodeRoot;
+}
+
+export function findNode(threadID: number): Node | undefined {
+	if (nodeRoot) {
+		return findNodeRecurse(threadID, nodeRoot);
+	}
+	return undefined;
+}
+
+function findNodeRecurse(threadID: number, node: Node): Node | undefined {
+	let res = node.threads.find((val: Thread) => { if (val.id === threadID) { return true; } });
+	if (res !== undefined) {
+		return node;
+	}
+
+	for (var i = 0; i < node.children.length; ++i) {
+		let nodeRes: Node | undefined = findNodeRecurse(threadID, node.children[i]);
+		if (nodeRes !== undefined) {
+			return nodeRes;
+		}
+	}
+
+	return undefined;
 }

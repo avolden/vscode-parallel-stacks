@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { createThreadTree, Node } from './nodeTree';
+import { createThreadTree, findNode, Node, Frame } from './nodeTree';
 
 let currentPanel: vscode.WebviewPanel | undefined = undefined;
 let currentSession: vscode.DebugSession | undefined = undefined;
@@ -16,7 +16,6 @@ export class Deserializer implements vscode.WebviewPanelSerializer {
 		this.context = context;
 	}
 	async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, state: unknown): Promise<void> {
-		console.log(state);
 		currentPanel = webviewPanel;
 
 		initWebview(this.html, this.context);
@@ -65,6 +64,8 @@ async function initWebview(html: vscode.Uri, context: vscode.ExtensionContext) {
 							threads: root
 						};
 						if (currentPanel) { currentPanel.webview.postMessage(msg); }
+
+						onChangeDebugItem(vscode.debug.activeStackItem);
 					}
 					else {
 						let msg = {
@@ -77,6 +78,37 @@ async function initWebview(html: vscode.Uri, context: vscode.ExtensionContext) {
 			case 'updateState':
 				context.globalState.update('webviewState', msg.data);
 				break;
+			case 'open':
+				let node: Node = msg.node;
+				if (node) {
+					let func: Frame = node.frames[node.frames.length - 1 - msg.func];
+					let uri: vscode.Uri = vscode.Uri.file(func.source);
+					for (const tabGroup of vscode.window.tabGroups.all) {
+						for (const tab of tabGroup.tabs) {
+							if (tab.input instanceof vscode.TabInputText &&
+								tab.input.uri.toString() === uri.toString()) {
+								// Focus that group and open the doc there
+								vscode.window.showTextDocument(uri, {
+									viewColumn: tabGroup.viewColumn,
+									preserveFocus: false,
+									preview: false,
+								}).then(editor => {
+									let range = editor.document.lineAt(func.line - 1).range;
+									editor.revealRange(range);
+									editor.selection = new vscode.Selection(range.start, range.start);
+								});
+								return;
+							}
+						}
+					}
+
+					vscode.window.showTextDocument(uri).then(editor => {
+						let range = editor.document.lineAt(func.line - 1).range;
+						editor.revealRange(range);
+						editor.selection = new vscode.Selection(range.start, range.start);
+					});
+				}
+				break;
 		}
 	});
 }
@@ -88,6 +120,10 @@ function getNonce() {
 		text += possible.charAt(Math.floor(Math.random() * possible.length));
 	}
 	return text;
+}
+
+function open(threadID: number, func: number) {
+
 }
 
 export async function show(html: vscode.Uri, context: vscode.ExtensionContext) {
@@ -117,6 +153,7 @@ export async function onSessionChange(session: vscode.DebugSession | undefined) 
 					threads: root
 				};
 				if (currentPanel) { currentPanel.webview.postMessage(msg); }
+				onChangeDebugItem(vscode.debug.activeStackItem);
 			}
 			else {
 				let msg = {
@@ -159,6 +196,7 @@ export async function onDebugSend(msg: any) {
 				threads: root
 			};
 			if (currentPanel) { currentPanel.webview.postMessage(msg); }
+			onChangeDebugItem(vscode.debug.activeStackItem);
 		}
 	}
 }
@@ -168,4 +206,22 @@ export function onThemeChange() {
 		command: 'theme'
 	};
 	if (currentPanel) { currentPanel.webview.postMessage(msg); }
+}
+
+export function registerSession(session: vscode.DebugSession) {
+
+}
+
+export async function onChangeDebugItem(item: vscode.DebugThread | vscode.DebugStackFrame | undefined) {
+	if (item && item.session === currentSession) {
+		let msg = {
+			command: 'activeItem',
+			threadID: item.threadId,
+			frameID: -1
+		};
+		if (item instanceof vscode.DebugStackFrame) {
+			msg.frameID = item.frameId;
+		}
+		if (currentPanel) { currentPanel.webview.postMessage(msg); }
+	}
 }

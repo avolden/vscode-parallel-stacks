@@ -26,8 +26,11 @@ export function activate(context: vscode.ExtensionContext) {
 	let sessionEvent = vscode.debug.onDidChangeActiveDebugSession((session) => {
 		webView.onSessionChange(session);
 	});
-
 	context.subscriptions.push(sessionEvent);
+	let activeItemEvent = vscode.debug.onDidChangeActiveStackItem((item) => {
+		webView.onChangeDebugItem(item);
+	});
+	context.subscriptions.push(activeItemEvent);
 
 	let trackerFactory = vscode.debug.registerDebugAdapterTrackerFactory('*', {
 		createDebugAdapterTracker(session: vscode.DebugSession) {

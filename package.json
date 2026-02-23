@@ -2,11 +2,11 @@
   "name": "thread-graph",
   "displayName": "Thread Graph",
   "description": "Shows threads from a debugging session as a graph view",
-  "publisher": "blue-tree",
+  "publisher": "avolden",
   "repository": {
 	"url": "https://github.com/BluTree/vscode-thread-graph"
   },
-  "version": "0.2.1",
+  "version": "1.0.1",
   "engines": {
     "vscode": "^1.106.0"
   },
@@ -16,7 +16,6 @@
   ],
   "activationEvents": [
 	"onCommand:callstack-show",
-	"onCommand:show",
 	"onWebviewPanel:thread-graph",
 	"onDebug"
   ],
