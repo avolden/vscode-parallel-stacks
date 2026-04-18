@@ -71,7 +71,6 @@ jobs:
           asset_content_type: application/octet-stream
 
       - name: Publish to Visual Studio Marketplace (vsce)
-        if: ${{ secrets.VSCE_PAT != '' }}
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
@@ -79,7 +78,6 @@ jobs:
           vsce publish -p "$VSCE_PAT"
 
       # - name: Publish to Open VSX
-      #   if: ${{ secrets.OPENVSX_TOKEN != '' }}
       #   env:
       #     OPENVSX_TOKEN: ${{ secrets.OPENVSX_TOKEN }}
       #   run: |
