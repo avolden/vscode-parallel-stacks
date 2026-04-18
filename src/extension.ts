@@ -3,16 +3,16 @@ import * as webView from './webView';
 
 export function activate(context: vscode.ExtensionContext) {
 
-	const callstackDisposable = vscode.commands.registerCommand('thread-graph.callstack-show', () => {
+	const callstackDisposable = vscode.commands.registerCommand('parallel-stacks.callstack-show', () => {
 		webView.show(vscode.Uri.file(context.asAbsolutePath('res/main.html')), context);
 	});
 	context.subscriptions.push(callstackDisposable);
-	const cmdDisposable = vscode.commands.registerCommand('thread-graph.show', () => {
+	const cmdDisposable = vscode.commands.registerCommand('parallel-stacks.show', () => {
 		webView.show(vscode.Uri.file(context.asAbsolutePath('res/main.html')), context);
 	});
 	context.subscriptions.push(cmdDisposable);
 
-	vscode.window.registerWebviewPanelSerializer('thread-graph', new webView.Deserializer(
+	vscode.window.registerWebviewPanelSerializer('parallel-stacks', new webView.Deserializer(
 		vscode.Uri.file(context.asAbsolutePath('res/main.html')),
 		context
 	));

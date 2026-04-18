@@ -1,14 +1,14 @@
 {
-  "name": "thread-graph",
-  "displayName": "Thread Graph",
+  "name": "parallel-stacks",
+  "displayName": "Parallel Stacks",
   "description": "Shows threads from a debugging session as a graph view",
   "publisher": "avolden",
   "repository": {
-	"url": "https://github.com/BluTree/vscode-thread-graph"
+	"url": "https://github.com/avolden/vscode-parallel-stacks"
   },
   "version": "1.0.1",
   "engines": {
-    "vscode": "^1.106.0"
+    "vscode": "^1.105.0"
   },
   "categories": [
 	"Other",
@@ -16,22 +16,22 @@
   ],
   "activationEvents": [
 	"onCommand:callstack-show",
-	"onWebviewPanel:thread-graph",
+	"onWebviewPanel:parallel-stacks",
 	"onDebug"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "thread-graph.callstack-show",
-        "title": "Thread Graph: Show",
+        "command": "parallel-stacks.callstack-show",
+        "title": "Parallel Stacks: Show",
 		"icon": "$(symbol-class)"
       }
     ],
 	"menus": {
 		"view/title":[
 			{
-				"command": "thread-graph.callstack-show",
+				"command": "parallel-stacks.callstack-show",
 				"when": "view == workbench.debug.callStackView",
 				"group": "navigation"
 			}
@@ -47,7 +47,7 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.106.0",
+    "@types/vscode": "^1.105.0",
 	"@types/vscode-webview": "^1.57.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",

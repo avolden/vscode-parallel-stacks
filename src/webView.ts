@@ -131,7 +131,7 @@ export async function show(html: vscode.Uri, context: vscode.ExtensionContext) {
 		currentPanel.reveal(vscode.ViewColumn.Active);
 	}
 	else {
-		currentPanel = vscode.window.createWebviewPanel('thread-graph', 'Thread Graph', vscode.ViewColumn.Active, {
+		currentPanel = vscode.window.createWebviewPanel('parallel-stacks', 'Parallel Stacks', vscode.ViewColumn.Active, {
 			enableScripts: true,
 			localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'res')]
 		});

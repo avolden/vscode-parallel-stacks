@@ -156,9 +156,10 @@ export async function createThreadTree(debugSession: vscode.DebugSession) {
 				child.frames.push(elem);
 			}
 
-			child.frames.reverse();
-
-			children.push(child);
+			if (child.frames.length > 0) {
+				child.frames.reverse();
+				children.push(child);
+			}
 		}
 	}
 	catch (e: any) {
@@ -166,6 +167,10 @@ export async function createThreadTree(debugSession: vscode.DebugSession) {
 			return undefined;
 		}
 		throw e;
+	}
+
+	if (children.length === 0) {
+		return undefined;
 	}
 
 	parseNodes(nodeRoot, children);
