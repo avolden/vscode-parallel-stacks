@@ -1,5 +1,5 @@
 {
-  "name": "parallel-stacks",
+  "name": "vscode-parallel-stacks",
   "displayName": "Parallel Stacks",
   "description": "Shows threads from a debugging session as a graph view",
   "publisher": "avolden",
