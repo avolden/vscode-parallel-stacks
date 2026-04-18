@@ -1,0 +1,88 @@
+name: Publish extension on tag
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (compile)
+        run: npm run compile
+
+      - name: Extract release notes from CHANGELOG.md
+        id: extract_notes
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          NOTES=$(awk -v tag="$TAG" 'BEGIN{found=0} { if($0 ~ "^##[[:space:]]*\\[?"tag"\\]?") {found=1; next} if(found && $0 ~ "^##[[:space:]]") exit; if(found) print }' CHANGELOG.md)
+          if [ -z "$NOTES" ]; then
+            NOTES=$(sed -n '1,200p' CHANGELOG.md)
+          fi
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body: ${{ steps.extract_notes.outputs.body }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package VSIX
+        run: |
+          npx -y vsce package
+
+      - name: Find VSIX
+        id: find_vsix
+        run: |
+          VSIX=$(ls *.vsix | head -n1)
+          echo "vsix=$VSIX" >> $GITHUB_OUTPUT
+
+      - name: Upload VSIX to GitHub Release
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ steps.find_vsix.outputs.vsix }}
+          asset_name: ${{ steps.find_vsix.outputs.vsix }}
+          asset_content_type: application/octet-stream
+
+      - name: Publish to Visual Studio Marketplace (vsce)
+        if: ${{ secrets.VSCE_PAT != '' }}
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          npm i -g vsce
+          vsce publish -p "$VSCE_PAT"
+
+      # - name: Publish to Open VSX
+      #   if: ${{ secrets.OPENVSX_TOKEN != '' }}
+      #   env:
+      #     OPENVSX_TOKEN: ${{ secrets.OPENVSX_TOKEN }}
+      #   run: |
+      #     npm i -g @open-vsx/ovsx
+      #     VSIX=$(ls *.vsix | head -n1)
+      #     ovsx publish "$VSIX" --token "$OPENVSX_TOKEN"

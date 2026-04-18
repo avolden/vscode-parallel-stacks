@@ -2,7 +2,7 @@
 
 The extensions adds a window to display a Parallel Stacks of the currently debugged program (Similar to the [Parallel Stacks](https://learn.microsoft.com/en-us/visualstudio/debugger/using-the-parallel-stacks-window?view=visualstudio) in Visual Studio).
 
-![screenshot](doc/screenshot_full.png)
+![screenshot](./doc/screenshot_full.png)
 Example of the Parallel Stacks view.
 
 ## Features
@@ -15,7 +15,7 @@ The view displays a graph of threads grouped by callstacks, when the program is 
 - **Navigate from the view**: Clicking on a function will open the file and go to the function line (if the file exists locally).
 
 The view is accessible either by using the `Parallel Stacks: Show` command, either by clicking the icon added in the callstack menu bar.
-![alt text](doc/callstack_menu_bar.png)
+![alt text](./doc/callstack_menu_bar.png)
 
 ## Limitations
 
