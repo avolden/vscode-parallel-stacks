@@ -19,11 +19,13 @@
  * @type {object}
  * @property {Thread[]} threads - Thread ids contained in this node
  * @property {ThreadFrame[]} frames
+ * @property {number | undefined} parentId
  * @property {ThreadNode[]} children
  *
  * @property {{x: number, y: number}} bb - bounding box of the node, including its children
  * @property {{x: number, y: number}} size - size of the node
  * @property {{x: number, y: number}} pos - position of the node
+ * @property {boolean} externalNode - Indicates if hte node contains only external functions
  * @property {number} headerHeight - height of the header line
  */
 
@@ -31,6 +33,7 @@
  * @typedef ViewState
  * @type {object}
  * @property {boolean} external - Show external code or not
+ * @property {boolean} autoFocus - Auto focus on active item when it changes
 */
 
 /**
@@ -85,7 +88,8 @@
 	 * @type {ViewState}
 	 */
 	let state = {
-		external: true
+		external: true,
+		autoFocus: true
 	};
 	let disableInteractions = true;
 
@@ -200,6 +204,21 @@
 	let style = selectStyle();
 
 	/**
+	 * @param {ThreadNode} node 
+	 * @returns {boolean}
+	 */
+	function allParentsExternal(node) {
+		if (!node.parentId) {
+			return true;
+		}
+		if (nodes[node.parentId].externalNode) {
+			return allParentsExternal(node);
+		} else {
+			return false;
+		}
+	}
+
+	/**
 	 * @param {ThreadNode} node
 	 */
 	function calcNodeSize(node) {
@@ -237,6 +256,7 @@
 			}
 		}
 
+		node.externalNode = externalNode;
 		if (externalNode && !state.external) {
 			let showExternalNode = false;
 			for (var i = 0; i < node.children.length; ++i) {
@@ -245,7 +265,8 @@
 				}
 			}
 
-			if (!showExternalNode) {
+			if (!showExternalNode && allParentsExternal(node)) {
+				node.size = { x: 0, y: 0 };
 				return;
 			}
 		}
@@ -331,12 +352,10 @@
 	 * @param {ThreadNode} node
 	 */
 	function fillNodes(node) {
-		if (node.bb.x === 0 && node.bb.y === 0) {
-			return;
-		}
-
 		nodes.push(node);
+		let nodeId = nodes.length - 1;
 		for (var i = 0; i < node.children.length; ++i) {
+			node.children[i].parentId = nodeId;
 			fillNodes(node.children[i]);
 		}
 	}
@@ -587,6 +606,30 @@
 		slider.scrollTop = newScroll.y;
 	}
 
+	function scrollToActiveItem() {
+		if (!slider || !activeItem.node) {
+			return;
+		}
+
+		const node = activeItem.node;
+		const nodeLeft = node.pos.x;
+		const nodeTop = node.pos.y;
+		const nodeRight = node.pos.x + node.size.x;
+		const nodeBottom = node.pos.y + node.size.y;
+
+		const containerWidth = slider.clientWidth;
+		const containerHeight = slider.clientHeight;
+		const scrollLeft = slider.scrollLeft;
+		const scrollTop = slider.scrollTop;
+
+		// Calculate the target scroll position to center the node in the viewport
+		const targetScrollLeft = Math.max(0, nodeLeft - (containerWidth - node.size.x) / 2);
+		const targetScrollTop = Math.max(0, nodeTop - (containerHeight - node.size.y) / 2);
+
+		slider.scrollLeft = targetScrollLeft;
+		slider.scrollTop = targetScrollTop;
+	}
+
 	function redrawCanvas() {
 		if (!ctx) {
 			return;
@@ -791,14 +834,17 @@
 				if (rootNode !== undefined) {
 					overlayText.style.display = 'none';
 					disableInteractions = false;
+					fillNodes(rootNode);
 					calcNodeBB(rootNode);
 					calcNodePos(rootNode);
-					fillNodes(rootNode);
 					redrawCanvas();
 				}
 				break;
 			case 'activeItem':
 				computeActiveItem(message.threadID, message.frameID);
+				if (message.focus && state.autoFocus) {
+					scrollToActiveItem();
+				}
 				redrawCanvas();
 				break;
 			case 'initialize':
@@ -838,9 +884,9 @@
 
 		if (rootNode !== undefined) {
 			nodes.splice(0);
+			fillNodes(rootNode);
 			calcNodeBB(rootNode);
 			calcNodePos(rootNode);
-			fillNodes(rootNode);
 			redrawCanvas();
 		}
 	});
@@ -849,6 +895,28 @@
 	}
 	else {
 		if (state.external) { button?.classList.toggle('toggle'); }
+	}
+
+	const autoFocusButton = document.getElementById('auto-focus-button');
+	autoFocusButton?.addEventListener('click', (e) => {
+		autoFocusButton.classList.toggle('toggle');
+
+		state.autoFocus = !state.autoFocus;
+		if (state.autoFocus) {
+			scrollToActiveItem();
+		}
+
+		vscode.postMessage({
+			command: 'updateState',
+			data: state
+		});
+		vscode.setState(state);
+	});
+	if (needStateUpdate) {
+		state.autoFocus = autoFocusButton?.className === 'toggle';
+	}
+	else {
+		if (state.autoFocus) { autoFocusButton?.classList.toggle('toggle'); }
 	}
 
 	needStateUpdate = false;

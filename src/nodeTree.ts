@@ -30,6 +30,8 @@ function parseNodes(parent: Node, children: Node[]) {
 		let relatives: Node[][] = [];
 		for (var i = 0; i < children.length; ++i) {
 			let found: boolean = false;
+
+			// if (children[i].frames.length < stackLevel) {
 			for (var j = 0; j < relatives.length; ++j) {
 				if (children[i].frames[stackLevel].name === relatives[j][0].frames[stackLevel].name) {
 					relatives[j].push(children[i]);
@@ -37,6 +39,7 @@ function parseNodes(parent: Node, children: Node[]) {
 					break;
 				}
 			}
+			// }
 
 			if (!found) {
 				relatives.push(new Array(children[i]));

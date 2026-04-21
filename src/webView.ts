@@ -5,7 +5,8 @@ let currentPanel: vscode.WebviewPanel | undefined = undefined;
 let currentSession: vscode.DebugSession | undefined = undefined;
 
 export class WebViewState {
-	external: boolean = true;
+	external: boolean = false;
+	autoFocus: boolean = true;
 }
 
 export class Deserializer implements vscode.WebviewPanelSerializer {
@@ -40,6 +41,10 @@ async function initWebview(html: vscode.Uri, context: vscode.ExtensionContext) {
 	if (webviewState?.external) {
 		externalCode = 'class="toggle"';
 	}
+	let autofocus = '';
+	if (webviewState?.autoFocus) {
+		autofocus = 'class="toggle"';
+	}
 
 	let formattedData = eval('`' + data + '`');
 	currentPanel.webview.html = formattedData;
@@ -65,7 +70,7 @@ async function initWebview(html: vscode.Uri, context: vscode.ExtensionContext) {
 						};
 						if (currentPanel) { currentPanel.webview.postMessage(msg); }
 
-						onChangeDebugItem(vscode.debug.activeStackItem);
+						onChangeDebugItem(vscode.debug.activeStackItem, true);
 					}
 					else {
 						let msg = {
@@ -153,7 +158,7 @@ export async function onSessionChange(session: vscode.DebugSession | undefined) 
 					threads: root
 				};
 				if (currentPanel) { currentPanel.webview.postMessage(msg); }
-				onChangeDebugItem(vscode.debug.activeStackItem);
+				onChangeDebugItem(vscode.debug.activeStackItem, true);
 			}
 			else {
 				let msg = {
@@ -196,7 +201,7 @@ export async function onDebugSend(msg: any) {
 				threads: root
 			};
 			if (currentPanel) { currentPanel.webview.postMessage(msg); }
-			onChangeDebugItem(vscode.debug.activeStackItem);
+			onChangeDebugItem(vscode.debug.activeStackItem, true);
 		}
 	}
 }
@@ -212,12 +217,13 @@ export function registerSession(session: vscode.DebugSession) {
 
 }
 
-export async function onChangeDebugItem(item: vscode.DebugThread | vscode.DebugStackFrame | undefined) {
+export async function onChangeDebugItem(item: vscode.DebugThread | vscode.DebugStackFrame | undefined, focus: boolean) {
 	if (item && item.session === currentSession) {
 		let msg = {
 			command: 'activeItem',
 			threadID: item.threadId,
-			frameID: -1
+			frameID: -1,
+			focus
 		};
 		if (item instanceof vscode.DebugStackFrame) {
 			msg.frameID = item.frameId;

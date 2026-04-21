@@ -28,7 +28,7 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 	context.subscriptions.push(sessionEvent);
 	let activeItemEvent = vscode.debug.onDidChangeActiveStackItem((item) => {
-		webView.onChangeDebugItem(item);
+		webView.onChangeDebugItem(item, false);
 	});
 	context.subscriptions.push(activeItemEvent);
 

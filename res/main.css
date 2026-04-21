@@ -58,6 +58,21 @@ html {
   box-shadow: inset 0px 0px 0px 1px var(--vscode-editorWidget-border);
 }
 
+#auto-focus-button {
+  width: fit-content;
+  padding: 0.5em 1em 0.5em 1em;
+  background-color: var(--vscode-editor-background);
+  -webkit-box-shadow: inset 0px 0px 0px 1px grey;
+  -moz-box-shadow: inset 0px 0px 0px 1px grey;
+  box-shadow: inset 0px 0px 0px 1px grey;
+}
+
+#auto-focus-button.toggle {
+  -webkit-box-shadow: inset 0px 0px 0px 1px var(--vscode-editorWidget-border);
+  -moz-box-shadow: inset 0px 0px 0px 1px var(--vscode-editorWidget-border);
+  box-shadow: inset 0px 0px 0px 1px var(--vscode-editorWidget-border);
+}
+
 #canvas-container {
   position: relative;
   width: 100%;

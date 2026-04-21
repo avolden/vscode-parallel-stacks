@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.0
+
+- Fix display of child nodes of merged threads when external code is hidden
+- Add auto focus toggle
+
 ## 1.0.1
 
 - Fix display of active item when external code is hidden
