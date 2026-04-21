@@ -70,6 +70,5 @@ jobs:
         env:
           OPENVSX_TOKEN: ${{ secrets.OPENVSX_TOKEN }}
         run: |
-          npm i -g @open-vsx/ovsx
           VSIX=$(ls *.vsix | head -n1)
-          ovsx publish "$VSIX" --token "$OPENVSX_TOKEN"
+          npx ovsx publish "$VSIX" -p "$OPENVSX_TOKEN"
